@@ -1,0 +1,1451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>RONI prototype v0.5</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --outer:#E3E9EB;--bg:#F2F5F4;--surface:#FFFFFF;--ink:#10223A;--muted:#5A6B7C;--line:#E0E7EA;--off:#CBD5DA;
+  --primary:#0E7C86;--primary-ink:#FFFFFF;--soft:#DDF1F2;--sun:#FFC857;
+  --good:#137A45;--goodbg:#E1F4E9;--warn:#8A5A00;--warnbg:#FFF1CF;--bad:#B4390E;
+  --deep:#10223A;--deeptext:#EAF6F4;--fixed:#10223A;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --outer:#060D13;--bg:#0B1620;--surface:#132230;--ink:#E8F0F4;--muted:#9BADBB;--line:#243748;--off:#3A4F62;
+    --primary:#4CC2CB;--primary-ink:#06222A;--soft:#123840;
+    --good:#5FD59A;--goodbg:#12362A;--warn:#F2C260;--warnbg:#3A2E10;--bad:#F0855A;
+    --deep:#0F3540;--deeptext:#EAF6F4;
+  }
+}
+:root[data-theme="dark"]{
+  --outer:#060D13;--bg:#0B1620;--surface:#132230;--ink:#E8F0F4;--muted:#9BADBB;--line:#243748;--off:#3A4F62;
+  --primary:#4CC2CB;--primary-ink:#06222A;--soft:#123840;
+  --good:#5FD59A;--goodbg:#12362A;--warn:#F2C260;--warnbg:#3A2E10;--bad:#F0855A;
+  --deep:#0F3540;--deeptext:#EAF6F4;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*{box-sizing:border-box}
+body{margin:0;height:100%;background:var(--outer);color:var(--ink);font:16px/1.45 'Figtree',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none;padding:0;text-align:inherit}
+input{font:inherit;color:inherit}
+h1,h2,h3,p{margin:0}
+h1{font-size:28px;font-weight:800;letter-spacing:-.025em;line-height:1.12}
+h2{font-size:20px;font-weight:700;letter-spacing:-.02em;line-height:1.2}
+h3{font-size:16px;font-weight:700;letter-spacing:-.01em}
+.muted{color:var(--muted)}.small{font-size:13.5px}.xs{font-size:12.5px}
+.bold{font-weight:700}
+button:focus-visible,input:focus-visible,summary:focus-visible,label:focus-within{outline:3px solid var(--primary);outline-offset:2px}
+
+#app{position:relative;max-width:480px;height:100%;margin:0 auto;display:flex;flex-direction:column;background:var(--bg);overflow:hidden}
+@media (min-width:520px){#app{border-left:1px solid var(--line);border-right:1px solid var(--line)}}
+main{flex:1;overflow-y:auto;padding:20px 18px 32px;-webkit-overflow-scrolling:touch}
+main.ask{padding-bottom:0}
+.stack>*+*{margin-top:18px}
+.stack-s>*+*{margin-top:10px}
+svg.i{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:none}
+
+/* nav */
+nav{display:none;grid-template-columns:repeat(5,1fr);background:var(--surface);border-top:1px solid var(--line);padding:6px 6px 8px;align-items:end}
+nav.on{display:grid}
+.nb{display:flex;flex-direction:column;align-items:center;gap:2px;font-size:11.5px;color:var(--muted);padding:6px 0;font-weight:600}
+.nb.act{color:var(--primary)}
+.nb.ask{margin-top:-30px;color:var(--ink)}
+.nb.ask .orbwrap{display:flex;border-radius:50%;box-shadow:0 0 0 5px var(--bg),0 6px 14px rgba(16,34,58,.3)}
+
+/* buttons, chips, tags */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:12px 20px;min-height:48px;border-radius:999px;font-weight:700;background:var(--primary);color:var(--primary-ink);text-align:center}
+.btn.block{display:flex;width:100%}
+.btn.ghost{background:transparent;border:1.5px solid var(--line);color:var(--ink)}
+.btn.soft{background:var(--soft);color:var(--primary)}
+.btn.sun{background:var(--sun);color:var(--fixed)}
+.btn.sm{padding:7px 14px;min-height:38px;font-size:14px}
+.btn.onDeep{background:transparent;border:1.5px solid rgba(234,246,244,.4);color:var(--deeptext)}
+.link{color:var(--primary);font-weight:700;text-decoration:underline;text-underline-offset:3px}
+.chips{display:flex;gap:8px;overflow-x:auto;margin:0 -18px;padding:2px 18px 6px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);font-weight:600;font-size:14px;white-space:nowrap;flex:none}
+.chip svg.i{width:18px;height:18px}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.tag{display:inline-flex;align-items:center;gap:5px;padding:3px 10px;border-radius:999px;font-size:12.5px;font-weight:700;background:var(--soft);color:var(--primary)}
+.tag.grey{background:var(--line);color:var(--muted)}
+.tag.good{background:var(--goodbg);color:var(--good)}
+.tag.warn{background:var(--warnbg);color:var(--warn)}
+.tag.spons{background:var(--warnbg);color:var(--warn)}
+.tag svg.i{width:14px;height:14px}
+.sw{width:50px;height:30px;border-radius:999px;background:var(--off);position:relative;flex:none;transition:background .15s}
+.sw::after{content:"";position:absolute;top:3px;left:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:transform .15s;box-shadow:0 1px 3px rgba(0,0,0,.3)}
+.sw[aria-checked="true"]{background:var(--primary)}
+.sw[aria-checked="true"]::after{transform:translateX(20px)}
+
+/* panels */
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:20px;overflow:hidden}
+.pad{padding:16px}
+.row{display:flex;align-items:center;gap:14px;padding:14px 16px;width:100%}
+.row+.row{border-top:1px solid var(--line)}
+.row .grow{flex:1;min-width:0}
+.row .end{text-align:right;flex:none}
+.ico{width:42px;height:42px;border-radius:14px;background:var(--soft);color:var(--primary);display:grid;place-items:center;flex:none}
+.ico.dash{background:transparent;border:1.5px dashed var(--off);color:var(--muted)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--good);margin-right:6px}
+.dot.off{background:var(--off)}
+.sec{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:10px}
+.avatar{width:44px;height:44px;border-radius:50%;background:var(--ink);color:var(--bg);display:grid;place-items:center;font-weight:800}
+.top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
+.back{display:inline-flex;align-items:center;gap:4px;font-weight:700;color:var(--primary);margin-bottom:14px}
+.deep{background:var(--deep);color:var(--deeptext);border-radius:22px;padding:20px}
+.deep .save{font-size:34px;font-weight:800;letter-spacing:-.03em;color:var(--sun);line-height:1.1}
+.big{font-size:44px;font-weight:800;letter-spacing:-.035em;line-height:1}
+.big span{font-size:18px;font-weight:600;letter-spacing:0;color:var(--muted);margin-left:6px}
+.askbar{display:flex;align-items:center;gap:10px;background:var(--surface);border:1.5px solid var(--line);border-radius:999px;padding:6px 6px 6px 18px}
+.askbar input{flex:1;border:0;background:transparent;min-width:0;padding:8px 0;outline:0}
+.askbar:focus-within{border-color:var(--primary)}
+.sendbtn{width:42px;height:42px;border-radius:50%;background:var(--primary);color:var(--primary-ink);display:grid;place-items:center;flex:none}
+.field{display:block}
+.field span{display:block;font-weight:700;font-size:14px;margin-bottom:6px}
+.field input{width:100%;padding:13px 14px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface)}
+.notice{background:var(--soft);border-radius:16px;padding:12px 14px;font-size:14px}
+.notice.warn{background:var(--warnbg);color:var(--warn)}
+.hr{height:1px;background:var(--line);margin:14px 0}
+.kv{display:flex;justify-content:space-between;gap:14px;padding:10px 0;border-top:1px solid var(--line);font-size:15px}
+.kv:first-child{border-top:0}
+.kv b{font-weight:600;text-align:right}
+.bar{height:8px;border-radius:8px;background:var(--line);overflow:hidden}
+.bar i{display:block;height:100%;background:var(--primary);border-radius:8px}
+ul.clean{list-style:none;margin:0;padding:0}
+ul.clean li{padding-left:22px;position:relative;margin:4px 0}
+ul.clean li::before{content:"";position:absolute;left:4px;top:.6em;width:7px;height:7px;border-radius:50%;background:var(--primary)}
+ul.clean.x li::before{background:var(--bad)}
+
+/* marketplace */
+.opt{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px}
+.opt.top{border:2px solid var(--primary)}
+.opt.sp{border:1.5px dashed var(--warn)}
+.price{font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.price small{font-size:13px;font-weight:600;color:var(--muted);letter-spacing:0}
+.tray{position:sticky;bottom:0;margin:16px -18px -32px;padding:12px 18px 16px;background:var(--bg);border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;gap:12px}
+.tbl{width:100%;border-collapse:collapse;font-size:14px;min-width:520px}
+.tbl th,.tbl td{padding:10px 8px;text-align:left;vertical-align:top;border-top:1px solid var(--line)}
+.tbl th:first-child{color:var(--muted);font-weight:600;width:84px}
+.tbl thead th{border-top:0;font-size:15px}
+.scrollx{overflow-x:auto;margin:0 -20px;padding:0 20px}
+
+/* chat */
+.msgs{display:flex;flex-direction:column;gap:12px;padding-bottom:14px}
+.bub{max-width:88%;padding:12px 14px;border-radius:18px;font-size:15.5px}
+.bub.u{align-self:flex-end;background:var(--primary);color:var(--primary-ink);border-bottom-right-radius:6px}
+.bub.r{align-self:flex-start;background:var(--surface);border:1px solid var(--line);border-bottom-left-radius:6px}
+.bub .part+.part{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.srcs{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.src{display:inline-flex;align-items:center;gap:5px;padding:4px 10px;border-radius:999px;background:var(--soft);color:var(--primary);font-size:12.5px;font-weight:700}
+.src svg.i{width:13px;height:13px}
+.composer{position:sticky;bottom:0;margin:0 -18px;padding:10px 18px 12px;background:var(--bg);border-top:1px solid var(--line)}
+.typing{display:flex;gap:5px;padding:14px}
+.typing i{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:blink 1s infinite}
+.typing i:nth-child(2){animation-delay:.15s}.typing i:nth-child(3){animation-delay:.3s}
+@keyframes blink{0%,80%,100%{opacity:.25}40%{opacity:1}}
+
+/* sheets and toast */
+#sheet-root .scrim{position:absolute;inset:0;background:rgba(8,16,26,.55);display:flex;align-items:flex-end;z-index:20}
+.sheet{background:var(--surface);width:100%;max-height:90%;overflow-y:auto;border-radius:24px 24px 0 0;padding:10px 20px 28px;animation:up .22s ease-out}
+.grab{width:40px;height:4px;border-radius:4px;background:var(--off);margin:0 auto 16px}
+@keyframes up{from{transform:translateY(24px);opacity:0}to{transform:none;opacity:1}}
+#toast{position:absolute;left:50%;bottom:86px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:11px 18px;border-radius:999px;font-weight:600;font-size:14.5px;z-index:40;max-width:90%;text-align:center;pointer-events:none;opacity:0;transition:opacity .2s}
+#toast.on{opacity:1}
+.quote{border-left:4px solid var(--primary);background:var(--bg);padding:12px 14px;border-radius:0 12px 12px 0;font-style:italic;font-size:15px}
+.step{display:flex;align-items:center;gap:12px;padding:8px 0;color:var(--muted)}
+.step.done{color:var(--ink)}
+.step .ck{width:26px;height:26px;border-radius:50%;border:2px solid var(--off);display:grid;place-items:center;flex:none}
+.step.done .ck{background:var(--primary);border-color:var(--primary);color:var(--primary-ink)}
+.step .ck svg.i{width:14px;height:14px;stroke-width:3}
+.drop{border:2px dashed var(--off);border-radius:20px;padding:26px 16px;text-align:center;display:block;cursor:pointer}
+.drop:hover{border-color:var(--primary)}
+.welcome{min-height:100%;display:flex;flex-direction:column;justify-content:space-between;gap:28px}
+.wtitle{font-size:40px;font-weight:800;letter-spacing:-.035em;line-height:1.05}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* ---------- v0.2 additions ---------- */
+.panel,.opt{box-shadow:0 1px 2px rgba(16,34,58,.05),0 8px 22px rgba(16,34,58,.05)}
+.wrap{max-width:760px;margin:0 auto}
+.fade{animation:fadein .2s ease-out}
+@keyframes fadein{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+.brand{display:none}
+.cats{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.catcard{background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:16px;display:flex;flex-direction:column;gap:10px;min-height:118px;position:relative;box-shadow:0 1px 2px rgba(16,34,58,.05),0 8px 22px rgba(16,34,58,.05);transition:transform .15s,border-color .15s}
+.catcard:hover{transform:translateY(-2px);border-color:var(--primary)}
+.catcard.soon{opacity:.6;box-shadow:none}
+.catcard.soon:hover{transform:none;border-color:var(--line)}
+.catcard .tag{position:absolute;top:12px;right:12px}
+.askbig{display:flex;align-items:center;gap:12px;background:var(--surface);border:2px solid var(--line);border-radius:26px;padding:12px 12px 12px 16px;box-shadow:0 8px 22px rgba(16,34,58,.07)}
+.askbig input{flex:1;border:0;background:transparent;min-width:0;padding:10px 0;font-size:17px;outline:0}
+.askbig:focus-within{border-color:var(--primary)}
+.seg{display:flex;gap:6px;overflow-x:auto;margin:0 -18px;padding:2px 18px 6px;scrollbar-width:none}
+.tabs{display:flex;gap:4px;overflow-x:auto;margin:0 -18px;padding:0 18px;border-bottom:1px solid var(--line);scrollbar-width:none}
+.tabs::-webkit-scrollbar,.seg::-webkit-scrollbar{display:none}
+.tab{padding:10px 12px;font-weight:700;font-size:14.5px;color:var(--muted);white-space:nowrap;border-bottom:3px solid transparent;margin-bottom:-1px}
+.tab.on{color:var(--primary);border-color:var(--primary)}
+.ext{border-left:4px solid var(--primary);background:var(--surface);border-radius:0 16px 16px 0;padding:14px 16px;border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.gen{border:1.5px dashed var(--off);background:transparent;border-radius:16px;padding:14px 16px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;margin-top:10px;font-size:13.5px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px}
+.stackbar{display:flex;height:14px;border-radius:8px;overflow:hidden;gap:2px;margin-top:14px}
+.stackbar i{display:block;height:100%}
+.attr{display:flex;justify-content:space-between;gap:10px;padding:6px 0;border-top:1px solid var(--line);font-size:14.5px}
+.attr:first-child{border-top:0}
+.tl{border-left:2px solid var(--line);margin-left:6px;padding-left:16px}
+.tl>div{position:relative;padding-bottom:14px}
+.tl>div::before{content:"";position:absolute;left:-23px;top:6px;width:10px;height:10px;border-radius:50%;background:var(--primary)}
+.btn.sm.wide{flex:1}
+.filebtn{position:relative;display:flex;align-items:center;gap:12px;padding:14px 16px;border:1.5px solid var(--line);border-radius:16px;font-weight:700;cursor:pointer}
+.filebtn:hover{border-color:var(--primary)}
+.filebtn input{position:absolute;opacity:0;width:1px;height:1px}
+.filebtn:focus-within{outline:3px solid var(--primary);outline-offset:2px}
+.mini{width:36px;height:36px;border-radius:50%;background:var(--soft);color:var(--primary);display:grid;place-items:center;flex:none}
+.mini.rec{background:var(--bad);color:#fff}
+
+@media (min-width:900px){
+  #app{max-width:1180px;flex-direction:row-reverse}
+  main{padding:36px 44px}
+  nav{display:none}
+  nav.on{display:flex;flex-direction:column;width:236px;border-top:0;border-right:1px solid var(--line);padding:26px 14px;gap:6px;align-items:stretch;justify-content:flex-start}
+  .brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px;letter-spacing:.02em;padding:0 12px 22px}
+  .nb{flex-direction:row;font-size:15.5px;gap:12px;padding:12px 14px;border-radius:14px;justify-content:flex-start}
+  .nb.act{background:var(--soft)}
+  .nb.ask{margin-top:0;order:-1;background:var(--sun);color:var(--fixed);margin-bottom:10px}
+  .nb.ask .orbwrap{box-shadow:none}
+  .nb.ask .orbwrap svg{width:28px;height:28px}
+  .nb.ask.act{background:var(--sun);outline:2px solid var(--ink)}
+  .composer{margin:0;padding:10px 0 14px}
+  .chips,.seg,.tabs{margin-left:0;margin-right:0;padding-left:0;padding-right:0}
+  .cats{grid-template-columns:repeat(4,1fr)}
+  .tray{margin:16px 0 -32px;padding-left:0;padding-right:0}
+  #toast{bottom:32px}
+  .sheet{max-width:560px;margin:0 auto;border-radius:24px;margin-bottom:5vh}
+  #sheet-root .scrim{align-items:center;justify-content:center}
+}
+
+.rrow{display:flex;gap:8px;align-items:flex-end;align-self:flex-start;max-width:96%}
+.rrow>svg{flex:none}
+.rrow .bub.r{align-self:auto;max-width:none}
+.hero{flex:none;filter:drop-shadow(0 8px 14px rgba(16,34,58,.18))}
+
+.inp{width:100%;padding:13px 14px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);color:var(--ink);font:inherit}
+textarea.inp{resize:vertical}
+.rrow>img{flex:none}
+@media (min-width:900px){.nb.ask .orbwrap img{width:28px;height:28px}}
+</style>
+</head>
+<body>
+<div id="app">
+  <main id="screen"></main>
+  <nav id="nav" aria-label="Main"></nav>
+  <div id="sheet-root"></div>
+  <div id="toast" role="status" aria-live="polite"></div>
+</div>
+
+<script>
+/* ---------- helpers ---------- */
+const TODAY = new Date('2026-10-11T00:00:00Z'); // fixed so demo numbers stay consistent (Dec 14 = 64 days)
+const days = d => Math.round((new Date(d + 'T00:00:00Z') - TODAY) / 864e5);
+const fdate = d => new Date(d + 'T00:00:00Z').toLocaleDateString('en-US', {month:'short', day:'numeric', year:'numeric', timeZone:'UTC'});
+const $$ = n => '$' + Number(n).toLocaleString('en-US');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pgl = p => /^\d+$/.test(String(p)) ? 'page ' + p : p;
+const clone = o => JSON.parse(JSON.stringify(o));
+
+const ICONS = {
+  home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/><path d="M10 20v-5h4v5"/>',
+  market:'<rect x="3" y="3" width="7" height="7" rx="2"/><rect x="14" y="3" width="7" height="7" rx="2"/><rect x="3" y="14" width="7" height="7" rx="2"/><rect x="14" y="14" width="7" height="7" rx="2"/>',
+  wallet:'<rect x="3" y="6" width="18" height="14" rx="3"/><path d="M3 10h18"/><circle cx="16.5" cy="14.5" r="1"/>',
+  user:'<circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 4-6 8-6s8 2 8 6"/>',
+  car:'<path d="M5 16l1.5-6A2 2 0 0 1 8.4 8.5h7.2a2 2 0 0 1 1.9 1.5L19 16"/><rect x="3" y="16" width="18" height="4" rx="1.5"/><circle cx="7.5" cy="18" r=".6"/><circle cx="16.5" cy="18" r=".6"/>',
+  building:'<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 8h2M13 8h2M9 12h2M13 12h2M10 21v-4h4v4"/>',
+  heart:'<path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.5A4 4 0 0 1 19 10c0 5.6-7 10-7 10z"/>',
+  shield:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+  paw:'<circle cx="7" cy="10" r="1.6"/><circle cx="12" cy="7" r="1.6"/><circle cx="17" cy="10" r="1.6"/><path d="M12 12c-3 0-5 3-4 5.5 1 2 2.5 1.5 4 1.5s3 .5 4-1.5c1-2.5-1-5.5-4-5.5z"/>',
+  moto:'<circle cx="6" cy="16" r="3.5"/><circle cx="18" cy="16" r="3.5"/><path d="M6 16l4-7h5l3 7M10 9l-1-2H7"/>',
+  plane:'<path d="M3 13l8-2 5-7 2 1-3 7 5 2-1 2-6-1-3 5-2-1 1-6-6 1z"/>',
+  back:'<path d="M15 5l-7 7 7 7"/>',
+  chev:'<path d="M9 5l7 7-7 7"/>',
+  check:'<path d="M5 12l5 5 9-10"/>',
+  upload:'<path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v4h16v-4"/>',
+  camera:'<path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/>',
+  image:'<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="M4 18l5-5 4 4 3-3 4 4"/>',
+  clip:'<path d="M20 11l-8 8a5 5 0 0 1-7-7l9-9a3.5 3.5 0 0 1 5 5l-9 9a2 2 0 0 1-3-3l8-8"/>',
+  bell:'<path d="M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z"/><path d="M10 21h4"/>',
+  lock:'<rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/>',
+  mic:'<rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/>',
+  send:'<path d="M4 12l16-8-6 16-3-6z"/>',
+  star:'<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>',
+  doc:'<path d="M7 3h7l4 4v14H7z"/><path d="M14 3v4h4M10 12h5M10 16h5"/>',
+  compare:'<path d="M8 3v18M16 3v18M3 8h5M16 8h5M3 16h5M16 16h5"/>',
+  info:'<circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/>',
+  users:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-5.5 6.5-5.5S15.5 16.5 15.5 20"/><circle cx="17" cy="9" r="2.5"/><path d="M17 14c3 0 4.5 2 4.5 5"/>',
+  plus:'<path d="M12 5v14M5 12h14"/>',
+  close:'<path d="M6 6l12 12M18 6L6 18"/>',
+  down:'<path d="M6 9l6 6 6-6"/>',
+  eye:'<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>'
+};
+const I = (n, cls='') => `<svg class="i ${cls}" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+const LOGO = 'data:image/webp;base64,UklGRn4zAABXRUJQVlA4WAoAAAAQAAAA/wAA/wAAQUxQSGsHAAABzmDctpEjqv+y93K+X0RMQAtNZmxDtBBrrM/aNlzUNmnW5jlm2lFl19jpgO12g+33/1Pi/8+M/iSzu7Vt2+7pb5yNW320bbs9uj3Ztm3btvk8m+T1ysx6M7+6319+M5OIcOBIbtvwSB+bKDu9/AByJEmSlOVQCQkQFnFuZe4/Zk37GK+qqT4iwhHbtpG0g5ndnet9pY70jT8xxbV6YBhYYtlJUw88+aQ7nnzC/ZClYiBrjtNVJ5184FQsu0TLqYZQY5AA5YNAY8ltph1+xT2ffpX1iK8+DZ6nVc4853pN7C6xNx9uS43b+6Invs1aHmXcDCEB0F4igBACs5j4trzIj1vKeADaexsVPACsNv3M+7425zVHjVu2RzCH4IJ5cv6+anoJAPlD18IZAbDopFOf+Nl4WDl9W/YVHJyD5CifOHWSjwBl1UQcBMAqO139YZaj2aG3761BcnxY7rSKkYgt+VrjdWav63/Qj7e2tQGWICL++r10oubj/u0PYPnyuu/13JDIkAAhiIiryuUjoG+7Kw/4qRd+lol0MbeB04qIx1R9ZcpW4uO8f7/njfWpNDixsfz5Mm+PvZVebhjY7Ny8P3UsQ4qWS/LlZsZl2sYDMOWOZiYukSEHnEiopkSAVRwPzLfzw3p2KgUABxEp3XyAt4anULoXM0lNrxgOi7zoSigrOCLAvNwLiRQKCCI8T191D64zplStXvGcakrhP4d4YJNLM0kghURE1UNG8IVetdyxv+tHQGGxovJYV9xFdWDex5kYXoGdkmoeUC9kFljvlkxGUyk40oncUgGqgNnGYd+1fM4ovBOkrFC0pBJs/1iHVYVfVDkoKdbMo0Y7rLLAIhcKNDIOWPe2NlmLJN26qHNRdpvzVZtsV1Z+hWJsFhDObJPtzsqqjlAAW/chabJYCRwE6w67xgpzvs6cWAtOPCLFwz3jqLZtndrrqGEeUcOiF7Rt69ZelUdtaG2pJ2Qksx5GsjIMqTaibd8QJxaEE4+oMZRbbvdN+xl9O0VVot7gvPMP2myp3g2drthNJBFrAiJ8Wc3NzdwsqkFra3MqVgUb2txsY21strM2NdtaG5rJ1ka0g2HW1h2NgX/X2PbnBGJtRJx3kR+wbfON5GZxrb3NQFVhyXeyIFbHKrfkAH+HiHmhJ7TZXkswD276xTIq1oeTixEGZkfJSEYARrIwIPWYpY0GdQMZoHitb1KmQZirteL+D2DvH8snEIEglffc/6Yz202gYECF0P8mbYRo33sUr/1NklIijKrsb4/nu1qb6Oi5i31fm440c7Skjuxjj8KWI80fzSfDSAnVt73me8bMaVZx2a+tPA4xc55Vh8D3aeI635s5zyq3Tn8Getxh5kSrKvi+2BxtVCn6oKmW+jxNqBJwWEpd/f77eM10UdUzKaz7e5LSJRnvK1K98hWaKaPZI/l4vDbadDz73vjelDpJ9EQeszVTR7Phe9hi/jeyhDoJ8fMr7p530EwfVV0Tc/lamjN5xOV8MXfLO2qmkNAtKTyZ0ijsoLrkCQkyEgG47kjF9+iYxvAeVl3ZRqNpRiTYhW7U47zMUSlOzusiTF7uy5TOA5eu8+Bb7KuZTkLnPyE4vJQmdErk2+p08Dwxy41QrcW+U/clOqY0nB2aGct+YXbT2RzLRm1TdeMrB6lYhfbNCjel1Ep6qLbxSt9nKa2S5VZC3C7e0+ymtblEaBffqCvUFlybkLHCDzqmNvRoDevYSTO9VLaGNVxHs1TwLfHiH+uY3rBa3Aw9xmeJEAzIeJPqOMWcSu/Qyiywf1pXKC5Uno3Kyj/pCsWFnzxyrWGaZpppGryunKMrNBfOQQAUHqT78GCeYSzzpa7QXCiXQewxRhIhGpAQ+Ua0u65QXQho1KOLKJcSQTWepTx4tqGixY2f3KhudIsDW4zmRrY6RJiZNemWIDOBwzNHtzhh4HLaD5cjvp92uZ+X+DSjvEU+LZf7mnaZY1KSG+Ea95OFdqnzQEkol6h9mgTKZdV5HPUy76A+2M9SL49PUi/jceolf6D+c8cU8sH02z/+8P9/Iv91t/++y3/f7X/u4n/u5n/u6n/u7n/v4n/v5n/v6n/v7q+78Nfd8Ouu/HV3/rrLA1B366+79tfd+8dd+Mfd+Mdd+cfd8cdd+sfd+sdd+8fd83MX/Lkb/twVf+4OP3fJn7vlz13j5+75cxf9uZv83FV/7q4/d5mfu+3PXdfn7h+Avgv+vhv8viv+vjv8vkv+vlv8vmv+vnv+vov8vpv+vqv8vrv8vsv+vtv8vuv+vvt87gI/dwOfu4LP3eHnLuFzt/i5a/jcPXzuIj53k5+7is/dxecu83O38bnr+Nx9fO5CPnejn7uSz93J5y7lc7fyuWv53L187mI+dzOfu5rP3c3nLudzt/O56/nc/XzvAr53A9+7gu/dwfcu0Xu38L1r+N49fO8ivXcT37tK793F9y7Te7fxvev03n1870K9d6Peu1Lv3cn3LtV7t+K9a/XevXrvYr13M967Gu/djfcux3u3H1vver53fwAAVlA4IOwrAADQqgCdASoAAQABPj0ai0OiIaEVWZ4sIAPEsgHYO2T+Gfg5b2J+3fgBZ6xi/afyz7ojbvb/yJ/r37bfMXYX77/c/75/qP7n+z/yd7/eofOt8z/YP9v/ivyH+cH/K9Tf6m/7PuB/p5/uv8F/ov2U7p/mI/aP/wf7P3hP83/gP7H7zf8T+5nuAfzn/Bf+XsPvQD/n39//7Hroft9/1/lD/bX9wPga/Zn/6ewB6AHDPf3r0OeSn6zxD/IfsH9f+avMMig/M/yN/E/xvHf88dQX8i/nn+6/NHkjNBf8D7g+hvxB/1s/6HjAeUd577Bn86/xX/L/If+5fTF/l/tJ6Rfz3/N/+b/WfAf/LP65/0f7v7ZPtb/ab2RP1o+/9yIB2e9eIHh+DpQs/+4JMhHQ3DfwLne/WiFtb8Q9z661sGZQFBSDxFHyLoijhrCe1KiONu+sojhJ0MFfmI+v8HOwBdL5J+NvTLZjZk//OBOa003/zz1BEOFatB/rp7cm9OR+FuRPys4j0XUkYTV+bxMPEDSyJahncfa7f39P1OnlsNhlNkyqf33N4tFMUeiSstBX6Mb1zxBGZPzWIqpojHCaR/k6in4bysbKd6wxm3A791K4fVooVf5GqKntJLLXHHDA44RMw13Bne/o7PWHAvO6nqr+ARhWkjrlfesb9tXy8YIN1wHICwYk/V9c0ML2FjYe5hv1rdiXkT0cxB+kbQaUhXM2LxV26xkA36G4sASJvonazqMnruKbKFBDQ0x5vH/hbrJ4V28T4sRPUohAvmKKwNw0aKkQ0uno3Yy47ueQd6icCoiNhHyH/Up9MOgWmvUvZU2slYjydr3WGAKFoHixvONOd4nDQg+DBJZRwFWSEQ7GxRNimQ2oml5XXuxaDKOBXjjG3aZlW8DmlbtlqU0HIQLC+cFOHT4ubNGxl6LCRhGBMix4RDRTa95SicuSEBVTSfaWhY/pBLpiShr1I0RkT1qxIXMTfHUqmDM2CEi9cm5kx+Ptg7bxRbERchJ03dnQruF8PHJ4SjlsvN5/NfAGdVx+7vMT0WNA3TzQ/ompLRW6QEHmREwRaGNsMa20GOkKgfCengNuKOg8DWDWAQxFY0qiptmfkYHXnZDhl9lqLuFckWHFuDnvqTruGPWPCu70z6jW7Hs0fikuF7AsQ5NiEHzWDOW3b3iL2kPKpSbFXjzrepjNLXfjDyKTFFmTya+C4/y9X0fh6TMiJH6SA0wK3onjoIhhHRkX8dSsnOQP0K0RAJQ5QV7HjYz882goBJ+oZcRVirjANuqxZIHLhEJ5HbCX8yQmOQYT3wNM3ceFKj1TkbfJwlpmElXlOzmo5Zsxp4VDRF3teWcFn0sbJO7FzlTrkLHaOhL122PpBaAm4OqYLXeM5kS6wUfS9koGXx2oyZ+S2HwxUK3DA6E2gqErx6N/Ad5CNKys/e8E9SYpuxmdfkK337V8uXsxzdbFC/DNmErxL8/fqM7ihNmL70dT+uetXKhvahGpHxfcv8QjKZASMfZj1tLSz3dm5hOBobNMpTnLq5cymOTbpvLfzhpsQRLyfRvUc3D/9zhty35EMEcFIeok4sFq5tkKilLL/4FIDjGes7CsFxjG9ZeM9zrnidK0e3GZ0JPk923Id7pRV1ol2tGq65kfvAJ+MSqZ6hN8hgzBsCBCS5ucYy/g6dCUY3bCD8FQOhizwM0GMKM8nfDX6IkSzMrHZZ1gmdAxvT2DvUmTCBvtX2HSxUgz/Ik5sVwtdpBtY3NoFtuZG8sSEoq1SZY5xZeyOXJJ21feDOnUYGlJhJAB5NQEpVXkp5QM83hManls9Ihu23yjnuZjq+I9vVVAAP7/CKl1hhGwDnvM3qvRmiCoQWtZ3x9uD0Tf0/rsMPn2+DZbS3wFaO5hCfnWnYpzKV8W3vws1mcrHr4qi3oP8ovaghBk8/GJubsXnPYQMmRwzl1nLlrxVNQ6pHHIkR20E7QzhE5n58Sb/+2RzTm7f9r9qiho47xRh8DJQes0bwAmXX3/OVU6SP2S0b56aGdzyE8EprMb+KTdxLxWX8x3JKbaF7pmZO/miS6wzIa5+3Zv4GSPsvan7a+YinljD2Y21CH96rEDyLbgHzZMA7gg+fNU5I2o6mGQilubq/BaIwuxSxE9A29y9dsDxkvDSEJylD1cyX8yGGEOu6AMg7zPwlOWjHeNGb/EscV6KYEP+by7BT6i/Ut8vl4gDXKBPMmBI/2CI8qx+AwpPEww91aKMIfPItf/tgztp+i9nuE9vvQo6YDYDf5OyjuxfPeyDQv7q0e4J7AwmnfqLbmFKibX8MM9MpMfl9rxUbThuW3f+R1GXAOzJH8MA+Qk+tbv6ahZDsOTav8gEG7JJz/in6pgKH/IBIXoLiu0bdwluEa/nHbEzRSlLeIFZdWireb58IH4KshcosyV6DUsHdEwWMr9FJ8V3Rm10Jc6xJ/fHBL7iAABgTAGPg8sVBSxv2JsQU5eeck1TXzY0wyCHkJJ00wQsolnYdzsRCWom3CruVAzNjHZjJIsO0o7aRvlSBiGv8PrHHzgTxl+KKlgx/GwXw6sJArSqIHBrSyv1Jed+tWR+w1U9UthxoJZRw3BQQT/OvP10pFuSMcnmhYcF0X7JDgKEcfEtYJvKuwQqhmxqv7fwaoXwBOq8rD/lBRkuXAKdyJTRFHmkGxNbFFpL+LQWuuhzjXP7kQOwKhcWryxO4CIGYgbhqiH/DSm85P8ncc9ssgZh8/0MGbDSW/QxeXMb5CENdk487bxvAPifL229EjdqzCtavwZIu/CCQ6G8hQyVhvm+r+3SuifL8ZH/BHzF2VI4owU/1CcByLi9r7kkXMIXA35M+fPkEKXObGRrulpgINZK6gMssDcmt9SLxbnNRf0OHZJbpX9FA1/ZRsmPfRYsZ2Atp7lJL9pW1eLNIgtpwOdEuPODaS2B372hP1+O8/3Aj8NHNk1IYXBpXNCOvbgnYV8x74ASumkJA5twgK3G/RqoO9f6v/b3gq5R0G5vW6GjDrT4gCaJ+RC8Wm70AqhTHVXzmBATsdUMVSHtkL4lRsKMdIUBjKCQSMgussKT57ufkeVqG+qUOayrJ+JGK7hhWdsLgNw18RrdpOl1lQl5k/Uq5c12lPVmfwyKLu4ilsQ5nj/BknHpkk894bceoHyaWFT0Vz0y7ResG8GlIni5lkd/+OxiP9KgAjj5GtQPCnuM7Qg0afd5jYvcGRKVjQ2MY2r139QS+A9bPrYhG7R3LidukqZJj00OhUZsBgTRi+WFakkZ891LM/RvBdNSKw7Ntq8vDBa9br6jlRVVVr44r+KNQp/m974O4eO3fzKpbVR+2XNS0qrR/PCb+DKKftU+eiIQQ0wO6wlkjlCsMiHa7WK+KPlC8f+weVu8lVbEC/vOiwcyPcHMVPRgfpklfMAv+YKjheE2zVDcyCtQOcB+Kmrt+ppAx0OMK4stcuYtQRnkqGlTUJsxgCezJRmtFV8/+qWtUewl2Ar4HFVX/l+n+/CRyO94wD3H6oyAfPN3vnSLUTNb7Z2+jcXFUrQCCt1sPJB+QkPu2sdQU1jmcmZ435LQVPmbF0b0faUzmLeGT01e4QsHpQ9JZKJKeGsTWXO+J5GypRDhUkWvKKoa+/PMYno8G+QGABPJByGOlAWp8lVnfwW09EiHX05s/PqLerZyYdeY0C/Scbi4cgARW4LoRYR8azKrFB4xPnx3HqBykmBQpu1nFSj4vVi15/M6p/E9lgT8Q6tgZmW3bvxMi02yjMLQAg27N3gHvezy2r9uDJazJYYU4bB+zr8g8KO44i15XRJEKrZnbOqE0J8H80nYIdX/mcstO58UbrjNGDbyzJ/Ky11ASoywESfubF1CK6QFh3h76rECvuXqEygUagbroAmuzvgMqdw3xmNoohxKAU/nd9e/gs2oHtvplrwlKlETknQdc5vHA4pPYL5Y23O6wc0wi5LmaX8fiD/HAex9h/C/U60U8+UtBqHuHRLFDpNOANZxTtMYCUw7y82+zUROA+IdNpRhMqmnCCiROO9Wh9DbKs6nnsCRNVvgV49u1hUHxet/h8ttA8w3dXN5POhczcfbVf637l1T5MOaAMRPng9nL0RhhLfTiuOypJ/VCTg62h2IaKZrNJrPNtmWUxv7teGv1aT8Ahwr4Gmn/962r34uoQXIALTkttXoRdICoTChk6qWBu534c9OzJnBQ/3UNlGDA7WGzzPOh4Q3Q3c65WI790m97HfDOMtT2dl/4Uyz+OFroYLCESCaNqj9pnHQXtc/TwvazIgq3FjVice7T7wTy4trneucvC92SzE4uKfuhy191cKE0uug4iI62+jJM+nGQSYSjyjjaI+Y+w996xSm5sczOm4Ko1+uRfrw+bndb5M/MyYwtvqzoB+YUX+dRdmZLVDuJY3ambN08CvSRd98xUO2zLcE6rj3+t+Xqse8oQEizsTEH+wBqbvMKRtMo7TMTHsfKePbbmyIwR/2muE2zLeZnZo+WNR+wRwWPMBxB/4cgvDM4LKXmQbqdWEzNJomSDXJHiXBYIns2PjmPi5qGaTvkkuKixJvwy9zBQ5zhwsM0lLdjpSZc0kOlg5Ga+pjM4zaSxOAuofKZvFVi984JaFrFox9Ndk+OWBWG5V3BihLDYJVmNv8JeywaamKRewD1jHROeynWx3zUTBgduqf/JB/RNDYUml9g5Mrgp7d//ThEedz73y3ZvNwhqWR4/yWjEFYxOamxLTJ0Dz7285Hf1pqeBtqt2aAN/a/BU9O3f6qtVtWKUwbJBvlqYeCbXsFuNa0Y1cf0eej/6LmDp++D9a1GsIS+bk6Y3hx1ZE34S0a4ME6XkktJ8Eu9ShI4V1TR3nEjVP6bl8m6BoSXBmE+5m/Qw7QQ03wwTluOMAna+KnTbcH+B8ZdUARZGyE2AeGSSXywgi3KLP5rn0K5cEr0PUjDP2R/dsM7qgW/c3Iy4uQuohbLQov+8pkMBJNcVjrD5aoYebcHb3tqM1tBx1FZ2JpKNvSUvHIsQt4kZhLbq1sdt3KlGeXj8dSmH+SZQxPZvyUGtUuPGPtMywtDzPGRjt+kR6lruMcGKEY8aFMZqQ6erCA1He8v9JWcstkdersa8QNZVt7D2iZGe4oaIy7GhRrbNArMgkXDJVS1WAr+d40pobeIEgDnixPt3s285+JXSxWhqjWk56a6klHSpupnufwTJOY3+TxXkEBzYki85+tU3dy7Ev19NIypgPGGY2rsT2Agi8pawGbBvW99ZrichYIvx9bGSg9mLLLt1xkZn2jEmn92SGdBQO1s7Sz+CtoZRfPvApY7k13mjcyTr3ll9WABQ5r3sz2HXlUa7nyEvBfn+yysK+jC9ZOeCy5VBov7AxkbgEDTL0Wtob5CX4Ljo6M3syWGRGV+tAGIsunjlqYjU8Q1TZWo0KHN5vHyf0yig9DU4x5cQlD/YxFLTlM1ZVzpmLlpyGjGmvRduD1+8eEW4jO7g0XCM1zvhZTC7nrufRLmLpd6LK6ZaYU0lLPRruSkJlJgILPhaiYtULaM7KgxgMbL4v44soAoghLfBj5Cem+mMpd/QH+BPVC/CeyMbpgMK25b5o0nRYiOrUSY5YWEPZ/EhjpapH07YrnheW00mXBf1Eq9jT9ECu5VOqoa/GEWijMl+F5J03pso7WwCFyjcNfk53hmOiQks5l0WkBxB9q+4ykgIdcHSyM5vbRTLjmICmWvURKIgik5kRHVhi5QfiD5qmBKa5PJx6aIogynfdHBWwPgQH+1mI467caMIqFV63Uu8AHihCggXSWQzYjPYM4L/3NLA9ck1F7ACT8NCIh2gAdvl1WrK/VGLjZkoZYYBfX6RilPFmWVttQggZeTvCOt94kk3ESNHM8KTQDq1e7yjOpe7fmL8pMYSIjc+XYp/v37XEHwG70jlbR0uJGj2ukLgRAwpmgUNsDDVFVxaC4SSuCBV2yP3T7lZDG2B3H0mpYq8/sRzg3pwv+uF+xAfOa1U7w6xOLo+MYdPBGu+zbGeWWtF755SMAng3KXKpO3lwGiCqH27XZIptiXP+I8mueDgUz5//R1mSJ/oQxu6rTUvrl8up+IT/qzMAzBagLoq6fNftaTLNW5eqIo4cagz7PfSBhuvn0oQv0sNaSjAZv/aInRGyUuje0yvF8Tts7qYErFcoiN2PUHLsNjYUPIiVlZ5stWcakAlLXRSw/dM/60YG0BfmkN/BeV4P0CkgmSv7KUajEgu2LSQUb/t8Ej5eJn/XxlMFJKPOTLKD8Z311R9uecEwpqCm0usDyeqYVCcgWB+yr9rVolK/LvpmW3iJbmZz5ZTPw6znxHtBjhVEMTvs2qUKHttXJkt3w5uXKmekc8ZL0UH/CCemb1TeFSoPR1Ida9WUOoh8DEZ7JZcDb6FoifuulYNVQTNg1ONd30kSzBkU88TmEwsf7o+reBIb56ecrih7ehF2kVS+l3q8okOgW0phqZvxlXjsTZ7s0ZX07X5gurcxKQaFCBRUgokJr4OnWWN8EMlwDrVS6yMnesAtgF2k12379nzVo69y1q0ngP1nL1d8RIiWNq9P7U0zAYvIpgW9lf2YUQAVRuFWcJ4iHq38ZC5wKg9vxjStAkVUUbGytDx0Z3VrH5hM5h4Qq/2lPITV4HZDHoW3TmgOcoImx5ZqyWjQwFrVPTXz9UFzfvLoaoGJN54f4u2vU7X/eG7QfjtvmSSS+Y9oPO75Uts/IfW74GoUmkwEsS/kdwiw9+le77erQ1Ner0XC2q2VHIHYaVrgJw8nk/XUnrAK3il8POkI7t6KvtMFKvqrdp/V/gxqf6Wpu2tdHfKK/x5KfgHX9Ju+xDflQ2oPZHJl7b/H8718n5YfbdEG0K0n5WSw58czr4GpPxEXGFeCWjEn4wQ8XX6La2Ff1cRhPeVgd/gacF2Y6cYydpZDrTp2Meu9WGRN4pUCY3vgnL8jerSWGhEiy9fGp4iXygBGFi50AYTJhheVQdnn/U2SEW8FrFNStCqqWSKlgliveezc/EvE1W4dTUACL36lK5zfG+8TzustghZMcHlg+1ffjT+FoS5T9/FgfKssXoHOOHgFK+BAjJBoDyiAlXZ94IG9K9mCT1VScSkC+T7SvRSMByMM9Ef4lzGjWU50W4xQ1evLejp6SdrjCiiM0T+t1mXL1G8UZwpv5/jVS4ctNpNZBF6L9ewNlag0KtMr92EqwO8Yv9mS8tD7UlypZhg8GWQ9TD1w8s2R8FGduWsE/uIewxGNV/+PSRvvhZrgeC+/nJ4MqbWv0QN+qWrx+cbGc4Px2PzpvmF4BgWRwHJrrt4cTgKN3a1uOaRJXbuvpE+gzlEPXbhrmaUxBX1fgczZ4Mly0w+xR09I1u9e2RWWBjO5KbsCJNleFdijUPUEQUENk8VbnC+o8cZg1//nuxc0oj4QY3pYe6R3MSwGsX4ya4EJ4yiSZSoRt4YDvI1ex6OoUEPAAZRZvsCTBGRiXbk5zTv+9ttvMeBD4XINpogGYnvFVZyYYKZw82mqjbKzwyldixC+5hwup1KcIZ0vqsNFkKgN01Csp54m7z8Qgi0OftjH3R6cC1nSCrzgxuO83VD/L4YwfUQ6fXBrSYMlwhopZO/s6H+DVB0DSfPnhKwRNoj1JUYhoTRU3yhh7psWwY9CJGGspsjsw139nzaXxO64G8mAuPPgAJ+k9/LoZR85ZeOj2FKwdkbDFMnBaimRQepjHjVUf4z7eeHQ9sCYMyb0SjHRwUTA1S/gV8XKMP71+A8BbIjm1f8k4j4JEIve4CQyFeb/izgDf4fLPgtZs11MGtdQFaOUIzEMwmly9K6WPhU8cV1tVIPkfDuKwH56hNc3wVU4ygWGWHErDJGttOunCp8y5CPXXy4I/7P6411SF8bVV/sDbuFku1y5fRUpJzIj69pog4/BcHQcsk90xgruCuCp3DhfuOtf/zvoRbeCyJgOQsvf+XSRtLwPOjbaXRKQDRhOMtDHKP2BSMT1MiyPG6I0MyNdPBbEhwBOKBxvEpxheuXQnzFHj+3OJBSddw+js5OP19u/Mzy490iyGgzKhps54OejQ84O4496eTxyMoUQLcU4ie9leNMKZcopxp4n9niMX9N6QTIa+QcZCGPCH+BB2qWpgullGqV1DzR+ZQ39QI819DxiF8/mmyz9QCh+6PgHNm35L3hEh2k69r9v7hMWt04vhbWDIaCNfsB4Kn6y4WA4BZnRHlzY390tdiYztnwqrwu25CZjX53onf/DZySDxV5pupC9uDQGEX0/6v4TfRl/IxUWyXym/+5e41GYB9faAcXVTrc7i+Ti4006CxVqLMceBK3+BB754NHda0MNlursZ4XoyN6wGKltNB7gD00tEeafKp6i3Hhv5s2tb98DVNT3dli9XdwvOFZNn2kd7BgZhRNAM3GFsYmufwMLVkpAbf3VKl/aesue9O0yNF6h2Lll4xiaHQPOX9dpF8SAffN8kfLcG4Aa5/m0kBT/p7iV3j07aY7JrK28p8Er3aNwudzinEDdhzrYETeHYK12X1T99GX+Rzp68CkAI1GiFcfI6Du0OSypQv97kt473AmDXa2tDmDzLwUUJUka3eBkJe20J7oFxyMLUx7f3JWfi/8tFpwJF+6DsofO1jEL6l7oQnldMqw8HXgfOMb7t8qDKhjCf8kib0IU29c0kPJfDGnzWMWUpxT2kf2YbRq691ovSZWJpER+Y0RhsdSHPmdCE2jOqfHJULm9/PxS+MvoEXal6NU3vP1rvuuIamD846cpYRRm1sk9ykwtqSEw9ONO3o8sNLowRKKrjPGzlGncBUDOPCriZgmQ0gohcfzdBjiAQl/fW/R1nFJ6XjBwshd5sBXxd4OJGsm/+YnLa49KpOWuq/uz9n56tZSm2F6ZOleWk0oRQtCuF+OD33MPDDi0HjOPJhN1Vd97/WN3aIH29uygNZHsJM/dU7EwER0asBk1kNmEzuaM1yyZxp88WMCyWBabbk4sBU2DUHYuWckU5p9SYe2bvZV6ucorJOxwI9aBUHazLsjpntFn+U65fCdm8EpxsUa5QBCjBstuztjtjXy36Uz+ekMH00Hq0Kes6Fkbnx4L5osKMSwuTvKw2/aUNtUPYPVG7SjsJhEV2+YO1LwYdudoVSuc0/THFz1Oqoygjo9w/LTxYKcZTW5P82MHuIf+0+gzUhehUTpMXx0A5H09UWkW4UbAa+SeyFxfWKqhzcPLcigS7xlEsKjs6IfEfvx/2Fp+J1JFCczc9LAq3HxqQz0buSBphXYiKlMe0/Bl3AXDzdA9Rfz0aleVkDj6r4xPNCXTzJUlxpXDsfbpEGmBznIVGXZWCkQzIjVCOuxM9Ai+DcVkEIl6eH4B9o93CZuHVyUTFiOh6hqNlCnMTx7nh1ipyvNZCUduABXxVcd+j/Qg7yz/tCrdUkb6K4/t1bcrpStGtepqCOF+lpoZVZtt90+uUgzxiLGryoeQYMajnr4YA5PpVZScXRFbKwXV6EBuwUW36ZCcAkWYhtg8NFuCm++/9vtDfR9A231ANIDsLiXjncVaXMqeDVEXBxt/OFeszs13mzXVnsYTSNiQpDr+BP+scLT1VzhZyP23I/nmLeH3AZm9TWHyCz10MmB6d2ll8epzPOf/RC61RGmB+kI4PbDxRlTMhWTyHtuTAilAWlMQUV4SGocjba7bJp2ePdT7ZhAlWoDVWYgxUolUGqNHq23UzaQJZQc6J5+mk0gDdT/mE5331pg0djkTR38PnPe01L7C6/m6pPb6DvPwLWZNym5g055hxaryyMsJIMhta/TKv9M6oH+1mBdnU0I9BwRs+bQQxxvXwqhht57jQYoH11Kxz63qyKr+ZyihuLiY8tjJRTsRnF78yR5PM5CiOM4klZhhwAirZ2WcbeJu1DsRl8SJR79Os/1Ze3zDQKlIj3OGliXrnQTPV7b50pDKlOkj56Kb6ygPIieV4h4ifub/1o8zHwyGAThzv05U6oC68cStcwCpP53NcIGFDO+38Q826TBQJ/3yZSawDVzlaql7qpewg1bQsnDd+Dk5H3XjGCEqy2SP9XQGbFEbPf2BiLVpcRaJ3mc8mNXKIiqFfS7CUpTG5sOf4Jpc+CES9bn6oMTD53oyfcR+jangJo8GFsgj1F9GpBPcPJx6Rl0lHyyajLBLzUk23cEvVU0XiHy+eN96WwgWkAfPiTd5dSzS0SxOphUnFGUCAOC5HbSnzCGSU1vcV178bu9/xR4yd8pcIb2P1mShNMU3nxChg03qvWEPtPGQcHIa/Cu2+KyfZSeXhMD42Uai1UxvqcqjQ/Svhq5BGvNZiyHYvDFIRp5Jz/DKqWY8NMRwybweYQRivyFojUv29YovVuMC+/3qw9rgpEpVlfwBliqqGppflnpHZ3xbgIpIm0gOFE5TK20G99svE67CxZzKoDw1R+NTDiLWSG6Y0RSCrweb0qCkGC2X/SurGd4q7RPOE1BWahlc6beiHFFiZh4FsS9PY90kIAn5SszlGGH8JtgoAjqj16M4B0O9ATAoIEmIvqhnInvlMttiogTbXXRjIwwbVDGEkOs7XI25mav1EaZsMFLFtNnvqwzgQj1t95xcIemgnKHQaOa0/IYfAgBl+P8nl1VJC2Vn9Fjg7DQsDZw+vPQI5DTLspyQABYW7Ww6PEOOO8UUhbhIh5d3SgTFxbl8zdHUVHP+d90WCzM4ZeLYtp/wCgWArOsgKqXohruwqgI6kO+OnPh8scuEmku+WwA+fV2oxnpTQVro48C1Sfp1d4haqjBlsrTrXJP+B63EdtsGabhc7/4zhEMTx7dO1Ex/TVFWdylgLbxVSEpaqi1RJL6jY8lxggibmxhHhq+QS1OO9JGcaS2lFhWeqb6UrqShvr+s3J9RErig9svzyQter0YmGFXpPLIhw7/vSOhwHOaCrQgVGg4d4oV0Fx6+3V7INwxUFHAlYRLZFo9hrvQVJnHNeWKt6A3sGcDcsJJwUAzQEtYbeMRtjUIT6ZiP3SlHVwQdzUBEzW8bFEVpu968qPjvw6nqi8fk6ob0/bS7QsiWLCZM2+wZjjJWmhEHvrrfWDE36FEB0JNXO5QhUzC/n4kGfloJ8DVaKLpvVVJ4r/6PIgm5X8vAjBDjNPZxugGHi6sIydVhVsF3Y02AKidMu+gaZC4/qrOkgfntuJaltAjqQdBmVkK0ftaLxrvrJWziRhLWUXnNWgqhLbCMZNIrHV2qw+wZ4sl3QribbDJIY5Cl11Ya5XLOICqlEj8neSz7thIgqXa3ppU4pwl4r4MtL1iOAv3f1C7UpIXkXGzr0ioV+wpdgEXwyJ1511Mwm4Fvlzo6Eq0mvv7P9PhKcSzG70WJEzPZrOHJsKzEgALj0vNTanYpP5P1zOyT5n45Ks/8/8LyJUoBoQThpUZH2BkJHOt29mu15u48O8hUwqH0i4tKAo5O5xJx6qyyHiwsdfP+ObAzwNTQIYUczIPgeU4ezDKEcZczc+n/1Dcm0UlPJhAZAhCjJ/VKpCwHbI8xMMLzWjPMidlLaJDATfnetrVkDWp79/yZXmnhm9kodaGTlBfGc9iC7vmu3o+pldktTKccO28+YNpaSYpswvxg7FtbrqNazmyiFU4d17rlqsiw682FC2Mah5+2MQj43J5M4tukgkdKqaVPhZc0SrOehmJmfDZNIYvYSEsJTpXn4PtAvacCEsdH1Hm4IFujEnrAtIpjW2+WAeYBJ0WaStdS+Ul8ghsmLpEQRuqo0Ak1IXpnOYVHYw+FqxRt6QCjwJfh90v5IvQKDfhRnfcQn4hT49xYNyfrMpShVJaX60jl/XVrMRXGrKB3iDduE5WOOIIi0EiEfvaNh+aOlS7qEub7ek0dzihtvJ7PrPcoEFRn+JOqZm6jxDWjG/iZ9NgEbzCEhH4oreCFTHdyrRCoOpzDtQ2r6+vcoDiVvGD34mrLEhl80K7MyJxWIFC4BuKyoqmVR8BOvR7YEqR+LpNWkSw1oQQrJlBYPKf5WdcZjKxx4hOJCsKpNP33zD/zCwFSfIyJL++fp0IFUqLz8MoqsxwKnUXj1FLK0uIYBcJXZZB77b7nMiyqva0pwd1s+GU1cUHIOOL492v7mVytG6gAhzUeKpz5Z0Z1ilZmqHORAcXxLYdi2IXbBcPioSrX1xqUQNkcwL9QjxQ+IBZHx/R3INntNRjU7/WLwrluayfho8VGlVZtcYLa8vH6haIzsPvqGf4KMK9hatoZsorJf07k+znLofqsgC6W2/gxoQ59Rv7gba1z0SXxz9LG9cofKgYwwbHt5geT7LCyiAqHGq29rzPkaU/ZYGZ+HnHsDZQEQITAJ9J304DcD2CAbYxoUIqXcgjlQi9goWEbPmWqtmZ48VIEi3VJXBeBCLnYEHSM4OwDdgMfNeDA0xfOFEfkebcKQx0333PEmWQO2C9WCQkN7ttwzovg1J/JekLyZRhLXMptE5wLvTrbi1U+02suq1Fo/ZY9Hc7L4mfW6T9tIaEF2Ko6DI0IntxeUBIQIMI4QxgoQjO7u/I2/hjggU/PPjXvlp3/xg0/OG+Rx3RPzqAv5JPQO/wGvSBXugceGv9Gh034aGy/1cLXHbCR7xvl6T8dAh0+O3Cpr+Lccr+RxrfUkk04FCKe8lGJIw8LcTw/ME9Ig7KAZS6TCLRlm1AtbaQo0lELi/q6RT6JiaSn2lfPY54DTkRQEGyp3UwASlX+GikXIlFfSaFGTTqE+Ldm/GwNljrZ/PZHkFfcYFZyv+EYZsmviTel4x15uS4Iecsw7wwWocN59PyVBGgZairABq2//31PiyRyaugc0BkX00GY0vT1mQXMB/GMfFMJ3ipZbeayn6ll9dG1aRqTXXb+GoxfV0TT13/AOgo3RZpZzrlHdm/lnQxDwQYnKDXQg1tzeEo7CHuW1JCAASExXzY7/TxvwfCaZzN/iY1/kBlObwZWyXaxggT7wnlEsVt+0IommiGPk3HcZThEwUTEkuTgqgIhrCfysOkoSeBumgScnxMRk0XIDjbR7cKMTUB55WQTKE6ZUsf2NRbcw2RTtm1S2oFDfE8nIBK3KH5mWkxgNq9AiH/YnnhpBcKLgoVdoyWsGMDa43iNBjE/8381dQusOTNVcVPU8OzwG/MU1kmH3rRAM6PC2szcjtG12O1z5U2nVCTT7fGB0DPxJ2N/B9vRiFZ1nMJG5vB/pkeVAStb8vCr7WH6W7kGDUZlO9ZjGlZHNr/lI2BbfuNSnY3hnFHD6wZ9qmhG1XNa4rf9bOCkimYvZhtsdPZeyTdiXbl9E+O2hN2CfIwXsc7fOR3j/u4owNw7+5NRX4qP2RUl6i5UpFwJcPVVEPGP+DKZGkdtS930YdiU2FrMOWtj1121zu+Niaj5g8fa5UuFJHJoHE2HqdzmKJsDYRsyaMonv/ryvV8cVNuRRSRZ1SFk9arpBCjh412eRoy4gAYZmoiTMzfyrtBFijK20iIdyr/c8h9IbfdXNhLZPkJOPT6Y58MIjJfzOAkumRaigxR/9elQTWJp7HQ3S1DzbIb2WKpXVH69rHKENnkz0LfmOeYQb6BJ1iwDejKZ5oC89lFRqaT6pw/qh9QVl34EqK0ixcyVUgzDbU2z4C6xutY4+fuUtRJqxS2TRtFEZepucHQhtwfFNnrMobg4hJyHo8mgU6We+OOVbjmtcY73FKGHadysAU7MfsjOD73+1WvMdngNR8JxV0uCQJk1y+rz7TF/wcmyRlepAPty4b/tkILFLgIT2ODbWVvAlHjjPebg1W//qoH2PH/9f/xqdPIB9cO7okwApyzpD6xA92B3S4mZtBbF501+2PlpqMRlh8dqn9dUmhBBMFVOpvdgPcJQ98flRjD+1Fb4ZTWWxbU5gnORt/yY3Q95BQ1aN5gvsv4lJcHMGWJKFtY4XGfC4p9YBbXOOgovMuzD0POKABIgEG0E3vMrHkMMuCE6rM0Sto2EmCautBUoRuofiOfzFNocY9niR4G2MAFzDzKy0YW/QH+nke0wkwL/U8U2Vxfz6om101HG5wKveGjKDLv2bPwDadT44ajfrINdinZTbNMuFGJGFycnxMp8ucfHBIO0iUnzKb5DxT2d0d2ByOiVjAouA7vZRluEV5+2+O5miLcRe9HUt6tuCR00f6SbuKDpFV9WwXxdCm+e5XoLgQaBf+zY/oDNEbkK0OdRIBIgbk1GBRoDaglJu7qLr0iE3Oka6wIwTWEQcJhjvtjKwRakzBYoZdPzquv80ykfwq517GQTyArFKQEQtY6+fqny4enEWcvrUEOw74aB3zcJK+fe+d2hPvmTM5CnAiZPa3hiqvll1Q6nojmNQvFzW60hXcu5+BYOTyTpuup3XyC/5YqYw01/Bl5D40nJ+WttG8dAUp+X1ArpzVi/9jB/PE/gR9pUf/XcZIc8g5CzLGlMWUof90mOBTpZOCWgIAAF+QhR/QN71JDC9OSvDkk/fwxgZ8rQ48t7VoE9zt9lrPAFu8Niiqn77NIbkrWFEEnn9zBfoVwLm2Qh4ptmWFmFQn0vYzJPHFDdulb3AUNGngpFZun09UQdwsU5WabfBRJT7MGobeEnYauAwJ9+L3Vlp1B5nSFhcYzedAFGvGFjUTAA8AxGpml12cC6QurtUd/fPz76pGn9ykDM339vqys39fCn3AYmLuOBXoeFgtoEHPsWTtrHFrryAPdXU0lyvhX0imQlZrWAryAqABMbFs3MhtS54PDSAbCMuecE7P/Pj5Y1kcUxjfZ7K9O85/9aNpTsMeO/gO7EeY+Lbd+ueUq4MObq07BgwDKuGck8kfOuJNyDj0jPh0sdrq7LIrAkZsPQuRBWyhhIVwyqDQrPbdSKzIpvKjJyZ7BNEIANB9m36vBauMR1lfDpZI1di9pD0r02/NweV8aeIUHNf12NxqXBYoxLCFMr2xh+CiFIa87jfXPqhm7kxWDV7L1Bm65recSgEND1uq5CIPLRvbL1CPrJyFZuHPpTW+6UCRyJ6SdzzVoTD/OkL/YdCe/AWdqtsasScy7hnmshPCx4AAAAAAA=';
+const ORB = (s=40) => `<img src="${LOGO}" width="${s}" height="${s}" alt="Roni the pug" style="display:block;border-radius:50%;flex:none">`;
+
+const CATS = {
+  auto:{label:'Auto', icon:'car'}, home:{label:'Home', icon:'home'}, renters:{label:'Renters', icon:'building'}, life:{label:'Life', icon:'shield'},
+  health:{label:'Health', icon:'heart'}, motorcycle:{label:'Motorcycle', icon:'moto', soon:true}, pet:{label:'Pet', icon:'paw'}, travel:{label:'Travel', icon:'plane', soon:true}
+};
+const PRIOS = [['price','Lower price'],['coverage','More coverage'],['deductible','Lower deductible'],['benefits','Better benefits']];
+const SORTS = [['match','Your priorities'],['price','Price'],['coverage','Coverage'],['benefits','Benefits'],['deductible','Deductible']];
+const CHART = ['#0E7C86','#FFC857','#7C6CF0','#E8846A','#4C9F70'];
+
+/* ---------- data: loaded from the database at start (nothing hardcoded) ---------- */
+let POLICY_TPL = [], SAMPLES = [], FLOW = {}, DEFAULTS = {}, CATALOG = {}, OPTIONS = {}, WATCH = {};
+function rebuildCatalog(){
+  OPTIONS = {}; WATCH = {};
+  Object.keys(CATS).forEach(c => { OPTIONS[c] = []; });
+  Object.keys(CATALOG).forEach(c => (CATALOG[c].options || []).forEach(o => {
+    if(o.kind === 'watch') (WATCH[c] = WATCH[c] || []).push(o); else (OPTIONS[c] = OPTIONS[c] || []).push(o);
+  }));
+}
+const findOpt = (cat,id) => (OPTIONS[cat]||[]).concat(WATCH[cat]||[]).find(o=>o.id===id);
+
+/* ---------- state ---------- */
+let uid = 0;
+const CAT_KEYS = ['auto','home','renters','life','health','pet'];
+const defNeed = () => ({interest:'watching', prios:['price'], budget:null, maxDed:null, level:'Balanced', notes:''});
+function freshState(){
+  return {
+    screen:'welcome', boot:'loading', hasAccount:false,
+    user:{first:'', last:'', email:''}, profile:{dob:'',street:'',city:'',state:'',zip:'',income:'',vehicles:[],properties:[],pets:[]},
+    needs:{}, policies:[], log:[], snooze:false,
+    settings:{renewal:true, better:true, marketing:false, carriers:false, agents:false, ai:true},
+    cat:'auto', prios:['price'], sort:'match', sel:{}, open:{}, pid:null, tab:'overview', acc:{},
+    flow:{cat:'auto', ans:{}}, members:[], sheet:null, chat:[], typing:false, requests:[], sampleIdx:0,
+    aiMode:null, catAdmin:'auto'
+  };
+}
+let S = freshState();
+const fullName = () => (S.user.first + ' ' + S.user.last).trim();
+function newAccount(){
+  const d = clone(DEFAULTS);
+  S.profile = d.profile; S.members = d.members; S.needs = d.needs; S.settings = d.settings; S.log = d.log;
+  S.policies = clone(POLICY_TPL);
+  CAT_KEYS.forEach(c => { if(!S.needs[c]) S.needs[c] = defNeed(); });
+  S.hasAccount = true;
+}
+const points = () => S.log.reduce((a,l)=>a+l[1],0);
+const getP = (cat, own) => S.policies.find(p => p.cat === cat && (own === false || p.owner === 'me'));
+const sub = v => String(v).replace('{holder}', fullName());
+const fact = (p,l) => { const f = p.facts.find(x=>x[0]===l); return f ? sub(f[1]) : ''; };
+const addPoints = (t, n) => { S.log.push([t,n]); toast('+' + n + ' Roni points'); };
+const numWord = n => ['no','one','two','three','four','five'][n] || String(n);
+const ownerTag = p => p.owner && p.owner !== 'me' ? `<span class="tag grey">${I('users')}${esc(p.owner)}\u2019s policy</span>` : '';
+const need = c => S.needs[c] || (S.needs[c] = defNeed());
+function age(dob){
+  if(!dob) return 0;
+  const d = new Date(dob + 'T00:00:00Z'); if(isNaN(d)) return 0;
+  let a = TODAY.getUTCFullYear() - d.getUTCFullYear();
+  const m = TODAY.getUTCMonth() - d.getUTCMonth();
+  if(m < 0 || (m === 0 && TODAY.getUTCDate() < d.getUTCDate())) a--;
+  return a;
+}
+function tok(t){
+  const p = S.profile || {};
+  if(t === 'zip') return p.zip || '';
+  if(t === 'vehicle') return (p.vehicles || [])[0] || '';
+  if(t === 'address') return p.street ? [p.street, p.city, p.state, p.zip].filter(Boolean).join(', ') : '';
+  if(t === 'dob') return p.dob ? fdate(p.dob) : '';
+  if(t === 'household') return [S.user.first].concat(S.members.filter(m=>m.adult).map(m=>m.name.split(' ')[0])).filter(Boolean).join(' and ');
+  if(t === 'driver'){ const a = age(p.dob); return a ? `${fullName()}, age ${a}` : ''; }
+  if(t === 'pet') return (p.pets || [])[0] || '';
+  return '';
+}
+function saveTok(t, v){
+  v = String(v || '').trim(); if(!v) return;
+  const p = S.profile;
+  if(t === 'zip') p.zip = v; else if(t === 'vehicle') p.vehicles = [v].concat(p.vehicles || []);
+  else if(t === 'address') p.street = v; else if(t === 'dob') p.dob = v; else if(t === 'pet') p.pets = [v].concat(p.pets || []);
+}
+
+/* ---------- ranking ---------- */
+function rank(cat, prios, sort){
+  const pr = prios.length ? prios : ['price'];
+  const list = OPTIONS[cat].filter(o => !o.sponsored);
+  const norm = (vals, v, inv) => { const mn = Math.min(...vals), mx = Math.max(...vals); const x = mx === mn ? 1 : (v - mn) / (mx - mn); return inv ? 1 - x : x; };
+  const P = list.map(o=>o.price), C = list.map(o=>o.cov), D = list.map(o=>o.ded), B = list.map(o=>o.benefits.length);
+  const out = list.map(o => {
+    const s = {price:norm(P,o.price,true), coverage:norm(C,o.cov,false), deductible:norm(D,o.ded,true), benefits:norm(B,o.benefits.length,false)};
+    return Object.assign({}, o, {s, score: pr.reduce((a,k)=>a+s[k],0) / pr.length});
+  });
+  const by = {match:(a,b)=>b.score-a.score||a.price-b.price, price:(a,b)=>a.price-b.price, coverage:(a,b)=>b.cov-a.cov, benefits:(a,b)=>b.benefits.length-a.benefits.length, deductible:(a,b)=>a.ded-b.ded};
+  return out.sort(by[sort || 'match']);
+}
+function similarOptions(cat){
+  const cur = getP(cat); if(!cur) return [];
+  const src = WATCH[cat] || OPTIONS[cat].filter(o=>!o.sponsored);
+  return src.filter(o => o.cov >= cur.score - 6 && o.price < cur.premium).sort((a,b)=>a.price-b.price);
+}
+function compareSelection(cat){
+  const sim = similarOptions(cat);
+  return (sim.length ? sim : rank(cat, ['price'], 'match')).slice(0,3).map(o=>o.id);
+}
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('on');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('on'), 2800);
+}
+
+/* ---------- backend: database, user, AI ---------- */
+const DB = {db:null, user:null, sample:null, uid:null, admin:false, saved:'', walletSaved:'', timer:null, running:false};
+const dbPath = n => `data/users/${DB.uid}/${n}`;
+function packState(){ return {user:S.user, profile:S.profile, needs:S.needs, settings:S.settings, members:S.members, log:S.log, requests:S.requests, sampleIdx:S.sampleIdx, snooze:S.snooze}; }
+function packWallet(){ return {policies:S.policies}; }
+function hydrate(d, w){
+  S.user = d.user || S.user; S.profile = d.profile || S.profile; S.needs = d.needs || {}; S.settings = Object.assign(S.settings, d.settings || {});
+  S.members = d.members || []; S.log = d.log || []; S.requests = d.requests || []; S.sampleIdx = d.sampleIdx || 0; S.snooze = !!d.snooze;
+  S.policies = (w && w.policies) || [];
+  CAT_KEYS.forEach(c => { if(!S.needs[c]) S.needs[c] = defNeed(); });
+}
+async function initBackend(){
+  try{
+    if(typeof claude !== 'undefined'){
+      DB.db = await claude.use('db'); DB.user = await claude.use('user'); DB.sample = await claude.use('sample');
+    }
+  }catch(e){ DB.db = null; }
+  if(!DB.db){ S.boot = 'nodb'; render(true); return; }
+  try{
+    if(DB.user){ DB.uid = await DB.user.id(); DB.admin = !!(await DB.user.canEdit()); }
+    const cat = await DB.db.collection('catalog').get();
+    const t = await Promise.all(['defaults','wallet','uploads','flows'].map(n => DB.db.doc('templates/' + n).get()));
+    cat.docs.forEach(d => { const x = d.data(); if(x && x.cat) CATALOG[x.cat] = x; });
+    DEFAULTS = (t[0].data() || {}); POLICY_TPL = ((t[1].data() || {}).policies || []); SAMPLES = ((t[2].data() || {}).samples || []); FLOW = ((t[3].data() || {}).flows || {});
+    rebuildCatalog();
+    if(DB.uid){
+      const pd = await DB.db.doc(dbPath('profile')).get();
+      if(pd.exists){
+        const wd = await DB.db.doc(dbPath('wallet')).get();
+        hydrate(pd.data(), wd.exists ? wd.data() : {policies:[]});
+        S.hasAccount = true; DB.saved = JSON.stringify(packState()); DB.walletSaved = JSON.stringify(packWallet());
+      }
+    }
+    S.boot = 'ready';
+    if(S.hasAccount && S.screen === 'welcome') S.screen = 'home';
+  }catch(e){ S.boot = 'nodb'; }
+  render(true);
+}
+function persistSoon(){ if(!DB.db || !DB.uid || !S.hasAccount) return; clearTimeout(DB.timer); DB.timer = setTimeout(persistNow, 900); }
+async function persistNow(){
+  if(!DB.db || !DB.uid || !S.hasAccount) return;
+  if(DB.running){ DB.timer = setTimeout(persistNow, 600); return; }
+  DB.running = true;
+  try{
+    const a = JSON.stringify(packState()), b = JSON.stringify(packWallet());
+    if(a !== DB.saved){ await DB.db.doc(dbPath('profile')).set(JSON.parse(a)); DB.saved = a; }
+    if(b !== DB.walletSaved){ await DB.db.doc(dbPath('wallet')).set(JSON.parse(b)); DB.walletSaved = b; }
+  }catch(e){ toast('Could not save your changes just now.'); }
+  DB.running = false;
+}
+async function resetAll(){
+  try{ if(DB.db && DB.uid){ await DB.db.doc(dbPath('profile')).delete(); await DB.db.doc(dbPath('wallet')).delete(); } }catch(e){}
+  S = freshState(); S.boot = 'ready'; DB.saved = ''; DB.walletSaved = '';
+  render(true); renderSheet();
+}
+async function saveCatalog(cat){
+  const doc = CATALOG[cat]; doc.cat = cat; doc.schema = 1;
+  await DB.db.doc('catalog/' + cat).set(doc);
+  rebuildCatalog();
+}
+
+/* ---- Roni AI (Claude through the `sample` capability) ---- */
+const AI_RULES = `You are Roni, the friendly pug assistant inside the RONI app, a consumer insurance app in the United States. Today is Oct 11, 2026.
+Answer the user's latest message using ONLY the DATA below. Rules:
+1. A part with kind "policy" states facts that literally appear in DATA.policies. It MUST list "sources" that point to those facts: {"pid": policy id, "k": "i" (coverage item), "x" (exclusion) or "f" (key fact), "i": the index number shown in DATA}. Never invent limits, deductibles, dates, prices or coverage. If the policies do not say, say so plainly and suggest asking the carrier or uploading the relevant document.
+2. kind "wallet" is for facts about the user's wallet overall (premiums, renewal dates, monitoring). No sources needed.
+3. kind "general" is short, generic insurance education. Never claim it applies to the user's own policy.
+4. Never call an option the universal best. Use DATA.needs (the user's own priorities, budget, deductible limit) and explain trade-offs. If you mention a sponsored option, say it is sponsored. Prices in DATA.catalog are illustrative estimates, not quotes.
+5. You are not a lawyer, financial advisor or licensed agent. Do not give legal advice. Never ask for or repeat sensitive identifiers.
+6. Warm, plain English, concise: at most 3 parts, at most 80 words each.
+7. Offer at most 3 "actions" when useful. Allowed t values: "flow" (start a quote; needs c), "compare" (compare with current policy; needs c), "section" (open the policy section; needs c), "upload", "ask" (needs q, a follow-up question), "needs" (edit insurance needs), "profile" (edit profile). c must be one of auto, home, renters, life, health, pet.
+Reply with ONLY JSON: {"parts":[{"kind":"policy|wallet|general","text":"...","list":["optional short bullets"],"sources":[{"pid":"auto","k":"i","i":2}]}],"actions":[{"t":"flow","c":"renters","label":"Start renters quote"}]}`;
+function polForAI(p){
+  return {pid:p.id, cat:p.cat, type:p.type, carrier:p.carrier, owner:p.owner === 'me' ? 'user' : p.owner, monthly:p.premium, renews:p.renewal, daysToRenewal:days(p.renewal), renewalQuote:p.renewalPremium || null, monitoring:p.monitoring,
+    facts:p.facts.map((f,i)=>({i, label:f[0], value:sub(f[1]), page:f[2]})),
+    items:p.items.map((it,i)=>({i, name:it.n, limit:it.lim, deductible:it.ded || null, page:it.pg, meaning:it.plain, quote:it.ex || null})),
+    exclusions:p.excl.map((e,i)=>({i, text:e[0], page:e[1], quote:e[2] || null}))};
+}
+function aiContext(){
+  const cat = {};
+  CAT_KEYS.forEach(c => { cat[c] = (OPTIONS[c] || []).map(o=>({id:o.id, carrier:o.carrier, plan:o.plan || null, monthly:o.price, coverage:o.covText, deductible:o.ded, benefits:o.benefits, notIncluded:o.excl, sponsored:!!o.sponsored, status:o.status})); });
+  return {
+    user:{firstName:S.user.first, age:age(S.profile.dob) || null, zip:S.profile.zip || null, household:tok('household'), vehicles:S.profile.vehicles, pets:S.profile.pets},
+    needs:S.needs, policies:S.policies.map(polForAI), foundByMonitoring:(WATCH.auto || []).map(o=>({carrier:o.carrier, monthly:o.price, coverage:o.covText, deductible:o.ded})), catalog:cat
+  };
+}
+function cleanAI(o){
+  const parts = [], actions = [], kinds = {policy:1, wallet:1, general:1}, cats = {auto:1, home:1, renters:1, life:1, health:1, pet:1};
+  (Array.isArray(o && o.parts) ? o.parts : []).slice(0,4).forEach(pt => {
+    if(!pt || typeof pt.text !== 'string' || !pt.text.trim()) return;
+    let kind = kinds[pt.kind] ? pt.kind : 'general';
+    const sources = [];
+    (Array.isArray(pt.sources) ? pt.sources : []).slice(0,5).forEach(s => {
+      const p = s && S.policies.find(x=>x.id === s.pid), i = s ? Number(s.i) : -1;
+      if(!p || !Number.isInteger(i)) return;
+      const arr = s.k === 'i' ? p.items : s.k === 'x' ? p.excl : s.k === 'f' ? p.facts : null;
+      if(arr && arr[i]) sources.push({pid:p.id, k:s.k, i});
+    });
+    if(kind === 'policy' && !sources.length) kind = 'general'; // never label an unsupported claim as coming from the policy
+    const list = Array.isArray(pt.list) ? pt.list.filter(x=>typeof x === 'string').slice(0,8).map(x=>x.slice(0,160)) : [];
+    parts.push({kind, text:pt.text.slice(0,700), list:list.length ? list : null, sources});
+  });
+  (Array.isArray(o && o.actions) ? o.actions : []).slice(0,3).forEach(a => {
+    if(!a || typeof a.label !== 'string') return;
+    const t = a.t, label = a.label.slice(0,40);
+    if(['flow','compare','section'].includes(t) && cats[a.c]) actions.push({t, c:a.c, label});
+    else if(['upload','needs','profile'].includes(t)) actions.push({t, label});
+    else if(t === 'ask' && typeof a.q === 'string' && a.q.trim()) actions.push({t, q:a.q.slice(0,120), label});
+  });
+  return {parts, actions};
+}
+async function askAI(q){
+  const hist = S.chat.slice(0, -1).slice(-6).map(m => m.role === 'user' ? {role:'user', content:m.text} : {role:'assistant', content:m.parts.map(p=>p.text).join(' ').slice(0,600)});
+  const turns = [{role:'user', content:AI_RULES + '\n\nDATA:\n' + JSON.stringify(aiContext())}].concat(hist, [{role:'user', content:q}]);
+  S.ctl = new AbortController();
+  const raw = await DB.sample.json(turns, {cache:false, signal:S.ctl.signal});
+  const r = cleanAI(raw);
+  if(!r.parts.length) throw {code:'invalid_json', message:'empty'};
+  return r;
+}
+
+
+/* ---------- shared UI pieces ---------- */
+function polRow(p){
+  const d = days(p.renewal);
+  return `<button class="row" data-a="policy" data-id="${p.id}">
+    <div class="ico">${I(CATS[p.cat].icon)}</div>
+    <div class="grow"><div class="bold">${p.type} insurance</div><div class="muted small">${esc(p.carrier)}</div><div style="margin-top:4px;display:flex;gap:6px;flex-wrap:wrap"><span class="tag good">Active</span>${ownerTag(p)}</div></div>
+    <div class="end"><div class="bold">${$$(p.premium)}/month</div><div class="muted small">Renews in ${d} days</div></div>
+  </button>`;
+}
+function privacyRows(){
+  const rows = [
+    ['renewal','Policy renewal alerts','Tell me before a policy renews.'],
+    ['better','Better-option alerts','Tell me when Roni finds a comparable option that costs less.'],
+    ['marketing','Marketing notifications','Promotions and product news.'],
+    ['carriers','Allow carriers to contact me','Insurance companies can reach out to me.'],
+    ['agents','Allow agents to contact me','Licensed agents can reach out to me.'],
+    ['ai','Let Roni use AI to read my policies','Roni sends your policy details to Claude to answer your questions. Nothing is sold or shared with agents.']
+  ];
+  return `<div class="panel">${rows.map(r => `<div class="row"><div class="grow"><div class="bold">${r[1]}</div><div class="muted small">${r[2]}</div></div>
+    <button class="sw" role="switch" aria-checked="${S.settings[r[0]]}" aria-label="${r[1]}" data-a="toggle" data-k="${r[0]}"></button></div>`).join('')}</div>`;
+}
+function spendChart(ps){
+  const total = ps.reduce((a,p)=>a+p.premium,0);
+  return `<div class="stackbar" role="img" aria-label="Monthly cost by policy">${ps.map((p,i)=>`<i style="width:${p.premium/total*100}%;background:${CHART[i%CHART.length]}"></i>`).join('')}</div>
+    <div class="legend">${ps.map((p,i)=>`<span><i style="background:${CHART[i%CHART.length]}"></i>${p.type} ${$$(p.premium)}</span>`).join('')}</div>`;
+}
+function alertCard(){
+  const a = getP('auto');
+  if(!a || !a.monitoring || S.snooze || !a.renewalPremium) return '';
+  const sim = similarOptions('auto');
+  return `<div class="notice warn" style="padding:16px"><div class="tag warn" style="background:transparent;padding:0">${I('bell')}Roni Monitor</div>
+    <p style="margin-top:8px;font-size:16px"><b>Your auto premium increased from ${$$(a.premium)} to ${$$(a.renewalPremium)}.</b></p>
+    ${sim.length?`<p style="margin-top:4px">Roni found comparable options starting around ${$$(sim[0].price)}.</p>`:''}
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px"><button class="btn sm" data-a="compareauto">Compare with my policy</button><button class="btn ghost sm" data-a="snooze">Remind me later</button></div></div>`;
+}
+
+/* ---------- onboarding ---------- */
+function authButtons(){
+  if(S.boot === 'loading') return `<div class="notice small">Connecting to Roni\u2019s database\u2026</div>`;
+  if(S.boot === 'nodb') return `<div class="notice warn small">Roni\u2019s database isn\u2019t available in this view. Open the prototype from your claude.ai account.</div>`;
+  if(S.hasAccount) return `<div class="stack-s"><button class="btn block" data-a="enter">Continue as ${esc(S.user.first || 'Alex')}</button><button class="btn ghost block" data-a="reset">Start over with a fresh demo account</button></div>`;
+  return `<div class="stack-s">${DB.uid ? '' : '<div class="notice warn small">Your changes will not be saved in this view.</div>'}<button class="btn block" data-a="go" data-s="signup">Create account</button><button class="btn ghost block" data-a="go" data-s="signin">Sign in</button></div>`;
+}
+function welcomeScreen(){
+  return `<div class="welcome">
+    <div style="display:flex;align-items:center;gap:10px;font-weight:800;font-size:24px;letter-spacing:.02em">${ORB(42)}RONI</div>
+    <div class="stack">
+      <div style="display:flex;align-items:flex-end;gap:12px"><span class="hero">${ORB(112)}</span><div class="bub r" style="max-width:220px">Woof! I\u2019m Roni. I\u2019ll keep an eye on your insurance so you don\u2019t have to.</div></div>
+      <h1 class="wtitle">All your insurance. Made simple.</h1>
+      <p class="muted" style="font-size:18px;max-width:32ch">Find, compare, understand, buy and manage every policy in one place.</p>
+      <div class="notice small">Prototype v0.2. Everything you see uses fictional data and nothing is sent anywhere.</div>
+    </div>
+    ${authButtons()}
+  </div>`;
+}
+function signupScreen(){
+  return `<div class="stack"><button class="back" data-a="go" data-s="welcome">${I('back')}Back</button>
+    <h1>Create your account</h1>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px"><label class="field"><span>First name</span><input id="su-first" autocomplete="given-name" placeholder="Alex"></label><label class="field"><span>Last name</span><input id="su-last" autocomplete="family-name" placeholder="Rivera"></label></div>
+    <label class="field"><span>Email</span><input id="su-email" type="email" autocomplete="email" placeholder="alex@example.com"></label>
+    <label class="field"><span>Password</span><input id="su-pass" type="password" autocomplete="new-password" placeholder="At least 8 characters"></label>
+    <button class="btn block" data-a="signup">Create account</button>
+    <p class="muted xs">Prototype: nothing is stored or sent. Leave fields empty to use the sample account.</p></div>`;
+}
+function signinScreen(){
+  return `<div class="stack"><button class="back" data-a="go" data-s="welcome">${I('back')}Back</button>
+    <h1>Welcome back</h1>
+    <label class="field"><span>Email</span><input id="si-email" type="email" autocomplete="email" placeholder="alex@example.com"></label>
+    <label class="field"><span>Password</span><input id="si-pass" type="password" autocomplete="current-password" placeholder="Your password"></label>
+    <button class="btn block" data-a="signin">Sign in</button>
+    <p class="muted xs">Prototype: any input signs you in to the sample account.</p></div>`;
+}
+function explainScreen(){
+  return `<div class="stack" style="padding-top:12vh"><div>${ORB(96)}</div><h1>Welcome, ${esc(S.user.first)}.</h1>
+    <p style="font-size:18px">You can explore RONI now. We\u2019ll only ask you to verify your identity when it\u2019s required to purchase or manage certain insurance products.</p>
+    <button class="btn block" data-a="enter">Start exploring</button></div>`;
+}
+
+/* ---------- home ---------- */
+function homeScreen(){
+  const ps = S.policies, hr = new Date().getHours();
+  const greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+  let h = `<div class="stack"><div class="top"><h1>${greet}, ${esc(S.user.first)}.</h1><button class="avatar" data-a="go" data-s="profile" aria-label="Profile">${esc(S.user.first[0] || 'A')}</button></div>`;
+  const mine = ps.filter(p=>p.owner==='me');
+  h += `<section><div class="sec"><h2>Your protection</h2><button class="link small" data-a="go" data-s="wallet">Open wallet</button></div><div class="panel">${ps.map(polRow).join('')}
+    ${!getP('life',false) ? `<div class="row"><div class="ico dash">${I('shield')}</div><div class="grow"><div class="bold">Life insurance</div><div class="muted small">No active policy</div></div><button class="btn soft sm" data-a="explore" data-c="life">Explore coverage</button></div>` : ''}</div></section>`;
+  const monthly = mine.reduce((a,p)=>a+p.premium,0), next = [...mine].sort((a,b)=>days(a.renewal)-days(b.renewal))[0];
+  h += `<section class="panel pad"><h2 style="margin-bottom:14px">Your insurance at a glance</h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:14px">
+      <div><div class="muted small">Active policies</div><div class="bold" style="font-size:24px">${mine.length}</div></div>
+      <div><div class="muted small">Monthly cost</div><div class="bold" style="font-size:24px">${$$(monthly)}</div></div>
+      <div><div class="muted small">Annual estimated cost</div><div class="bold" style="font-size:24px">${$$(monthly*12)}</div></div>
+      <div><div class="muted small">Next renewal</div><div class="bold" style="font-size:24px">${next.type} \u2014 ${days(next.renewal)} days</div></div></div>
+    ${spendChart(mine)}</section>`;
+  const auto = getP('auto'), sim = similarOptions('auto');
+  if(auto && auto.monitoring && sim.length && !S.snooze){
+    const save = auto.premium - sim[0].price;
+    h += `<section class="deep"><div class="tag" style="background:rgba(255,200,87,.18);color:var(--sun)">${I('bell')}Roni found something</div>
+      <p style="margin:12px 0 4px;font-size:18px;font-weight:600">Your auto insurance renews in ${days(auto.renewal)} days.</p>
+      <p style="opacity:.9">Roni found ${sim.length} comparable options that may cost less.</p>
+      <p style="margin:14px 0 2px;opacity:.85" class="small">Potential savings</p><div class="save">Up to ${$$(save)}/month</div>
+      <div style="margin-top:16px"><button class="btn sun sm" data-a="compareauto">Compare options</button></div></section>`;
+  }
+  h += `<section><div class="sec"><h2>Ask Roni</h2></div>
+    <div class="askbig"><input id="homeAsk" placeholder="Ask anything about your insurance\u2026" aria-label="Ask Roni"><button class="sendbtn" style="width:48px;height:48px" data-a="sendhome" aria-label="Send">${I('send')}</button></div>
+    <div class="chips" style="margin-top:12px">${['Am I covered if my car is stolen?','Why is my auto insurance so expensive?','When does my renters policy renew?','Can you compare my current auto policy?'].map(q=>`<button class="chip" data-a="prompt" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div></section>
+    <p class="muted xs" style="text-align:center">Prototype v0.2 with fictional data</p></div>`;
+  return h;
+}
+
+/* ---------- marketplace: categories, quote flow, results ---------- */
+function marketScreen(){
+  return `<div class="stack"><h1>What do you want to protect?</h1>
+    <div class="cats">${Object.keys(CATS).map(k=>{const c=CATS[k]; return `<button class="catcard ${c.soon?'soon':''}" ${c.soon?'data-a="soon"':`data-a="startflow" data-c="${k}"`} ${c.soon?'aria-disabled="true"':''}>${c.soon?'<span class="tag grey">Coming soon</span>':''}<div class="ico">${I(c.icon)}</div><div class="bold" style="font-size:17px">${c.label}</div></button>`;}).join('')}</div>
+    <div class="notice small">Already have insurance? Add it to your <button class="link" data-a="go" data-s="wallet">Wallet</button> and Roni will tell you what you have.</div>
+    <div style="text-align:center"><button class="link small" data-a="money">How RONI makes money</button></div></div>`;
+}
+function flowScreen(){
+  const c = S.flow.cat, f = FLOW[c] || {known:[], ask:[]}, ans = S.flow.ans, n = need(c);
+  const known = f.known.filter(k => tok(k.token)), missing = f.known.filter(k => !tok(k.token));
+  return `<div class="stack"><button class="back" data-a="go" data-s="market">${I('back')}Marketplace</button>
+    <div><h1>${CATS[c].label} insurance</h1><p class="muted" style="margin-top:6px">Let\u2019s find options. Roni only asks what it doesn\u2019t already know.</p></div>
+    ${known.length?`<section><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><h3>Roni already knows</h3><span class="tag">${I('lock')}From your profile</span></div>
+      <div class="panel">${known.map(k=>`<div class="row"><div class="mini">${I('check')}</div><div class="grow"><div class="muted small">${k.label}</div><div class="bold">${esc(tok(k.token))}</div></div><button class="link small" data-a="go" data-s="editprofile">Edit</button></div>`).join('')}</div></section>`:''}
+    ${missing.length?`<section class="stack-s"><h3>Roni doesn\u2019t know these yet</h3><p class="muted small">Roni will remember them in your profile.</p>${missing.map((k,i)=>`<label class="field"><span>${k.ask}</span><input class="inp" id="kn-${f.known.indexOf(k)}" type="${k.save==='dob'?'date':'text'}" placeholder="${esc(k.ph||'')}"></label>`).join('')}</section>`:''}
+    <section class="stack-s"><h3>Just a few new questions</h3>
+      ${f.ask.map(q=>`<div><div class="small bold" style="margin-bottom:6px">${q.q}</div><div style="display:flex;flex-wrap:wrap;gap:8px">${q.opts.map(o=>`<button class="chip ${ans[q.id]===o?'on':''}" data-a="ans" data-q="${q.id}" data-v="${esc(o)}" aria-pressed="${ans[q.id]===o}">${esc(o)}</button>`).join('')}</div></div>`).join('')}</section>
+    <section><h3>What matters most to you?</h3><p class="muted small" style="margin:2px 0 8px">Pre-filled from <button class="link" data-a="go" data-s="needs">your needs</button>. Choose as many as you like.${n.budget?` Budget: ${$$(n.budget)}/month.`:''}</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px">${PRIOS.map(p=>`<button class="chip ${S.prios.includes(p[0])?'on':''}" data-a="prio" data-k="${p[0]}" aria-pressed="${S.prios.includes(p[0])}">${S.prios.includes(p[0])?I('check'):''}${p[1]}</button>`).join('')}</div></section>
+    <button class="btn block" data-a="results">See options</button></div>`;
+}
+function optCard(o, i, cur, kind){
+  const cat = S.cat, chosen = (S.sel[cat] || []).includes(o.id);
+  let delta = '';
+  if(cur){
+    const d = cur.premium - o.price, cd = o.cov - cur.score;
+    const pt = d > 0 ? `<span class="tag good">${$$(d)}/month less than yours</span>` : d < 0 ? `<span class="tag grey">${$$(-d)}/month more than yours</span>` : `<span class="tag grey">Same price as yours</span>`;
+    const ct = cd > 4 ? `<span class="tag good">More coverage than yours</span>` : cd < -4 ? `<span class="tag warn">Less coverage than yours</span>` : `<span class="tag grey">Similar coverage to yours</span>`;
+    delta = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">${pt}${ct}</div>`;
+  }
+  let why = '';
+  if(kind === 'organic' && S.sort === 'match'){
+    const lab = {price:['Lowest price','Lower price'],coverage:['Highest coverage','Higher coverage'],deductible:['Lowest deductible','Lower deductible'],benefits:['Most benefits','Strong benefits']};
+    const tags = S.prios.map(k => o.s[k] === 1 ? lab[k][0] : o.s[k] >= .66 ? lab[k][1] : null).filter(Boolean);
+    why = `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">${i===0?`<span class="tag">Closest match to your priorities</span>`:''}${tags.map(t=>`<span class="tag grey">${t}</span>`).join('')}</div>`;
+  }
+  const nd = need(cat), fitTags = [];
+  if(nd.budget) fitTags.push(o.price <= nd.budget ? '<span class="tag good">Within your budget</span>' : '<span class="tag warn">Over your budget</span>');
+  if(nd.maxDed !== null && nd.maxDed !== undefined) fitTags.push(o.ded <= nd.maxDed ? '<span class="tag grey">Deductible within your limit</span>' : '<span class="tag warn">Deductible above your limit</span>');
+  const fit = fitTags.length ? `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:8px">${fitTags.join('')}</div>` : '';
+  const detail = o.attrs ? `<div style="margin-top:12px">${o.attrs.map(a=>`<div class="attr"><span class="muted">${a[0]}</span><b>${a[1]}</b></div>`).join('')}</div>`
+    : `<div class="small" style="margin-top:8px">Deductible: <b>${o.ded ? $$(o.ded) : 'None'}</b></div><ul class="clean small" style="margin-top:8px">${o.benefits.slice(0,3).map(b=>`<li>${esc(b)}</li>`).join('')}</ul>`;
+  const m = o.modes;
+  return `<article class="opt ${kind==='sponsored'?'sp':(i===0&&S.sort==='match'?'top':'')}">
+    ${kind==='sponsored'?`<div style="margin-bottom:10px"><span class="tag spons">Sponsored</span></div>`:''}
+    <div style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+      <div>${o.plan&&kind!=='sponsored'?`<div class="muted small bold">${o.plan}</div>`:''}<h3>${esc(o.carrier)}</h3><div class="muted small" style="margin-top:2px">${esc(o.covText)}</div></div>
+      <div class="price">${$$(o.price)}<small>/month</small></div></div>
+    ${why}${fit}${delta}${detail}
+    <div style="display:flex;gap:8px;margin-top:14px;flex-wrap:wrap">
+      <button class="btn ghost sm" data-a="details" data-c="${cat}" data-id="${o.id}">View details</button>
+      <button class="btn ghost sm" data-a="askopt" data-c="${cat}" data-id="${o.id}">${I('star')}Ask Roni</button>
+      <button class="btn ghost sm" data-a="sel" data-id="${o.id}" aria-pressed="${chosen}">${chosen?I('check')+'Added':'Compare'}</button></div>
+    ${m.includes('licensed')?`<div class="notice small" style="margin-top:12px">Licensed assistance may be required to complete this purchase.</div>`:''}
+    <div style="display:flex;gap:8px;margin-top:12px;flex-wrap:wrap">
+      ${m.includes('roni')?`<button class="btn sm wide" data-a="buyroni" data-c="${cat}" data-id="${o.id}">Buy with RONI</button>`:''}
+      ${m.includes('carrier')?`<button class="btn ${m.includes('roni')?'ghost':''} sm wide" data-a="carrier" data-n="${esc(o.carrier)}">Continue with carrier</button>`:''}
+      ${m.includes('licensed')?`<button class="btn soft sm wide" data-a="licensed" data-c="${cat}" data-id="${o.id}">Request licensed assistance</button>`:''}</div>
+  </article>`;
+}
+function resultsScreen(){
+  const c = S.cat, ranked = rank(c, S.prios, S.sort), sp = OPTIONS[c].find(o=>o.sponsored), cur = getP(c);
+  const n = (S.sel[c] || []).length, pl = S.prios.map(k=>PRIOS.find(p=>p[0]===k)[1].toLowerCase());
+  let h = `<div class="stack"><button class="back" data-a="go" data-s="flow">${I('back')}Edit answers</button>
+    <div><h1>${CATS[c].label} options</h1><p class="muted" style="margin-top:6px">Based on the priorities you selected (${pl.join(', ')}), these options most closely match your criteria. There is no single best plan for everyone.</p></div>
+    <div><div class="small bold" style="margin-bottom:6px">Sort by</div><div class="seg">${SORTS.map(s=>`<button class="chip ${S.sort===s[0]?'on':''}" data-a="sort" data-k="${s[0]}" aria-pressed="${S.sort===s[0]}">${s[1]}</button>`).join('')}</div></div>`;
+  if(cur) h += `<div class="notice small">You have ${esc(cur.carrier)} ${cur.type.toLowerCase()} at ${$$(cur.premium)}/month. Each option shows how it compares.</div>`;
+  h += `<section class="stack-s"><h3>Your matches</h3>${ranked.length ? ranked.map((o,i)=>optCard(o,i,cur,'organic')).join('') : '<div class="notice">No products in the database for this category yet.' + (DB.admin ? ' <button class="link" data-a="go" data-s="catalog">Add some</button>' : '') + '</div>'}</section>`;
+  if(sp) h += `<section class="stack-s"><h3>Sponsored</h3><p class="muted small">Sponsored placements are always labeled, shown separately, and never change your matches above.</p>${optCard(sp,0,cur,'sponsored')}</section>`;
+  h += `<section class="ext" style="border-left-color:var(--warn)"><h3>How RONI makes money</h3><p style="margin-top:8px">RONI is free for consumers. If you purchase certain insurance products through RONI, we may receive compensation from the insurance provider.</p><p style="margin-top:8px">Sponsored relationships never change your organic comparison results.</p></section></div>`;
+  if(n) h += `<div class="tray"><span class="bold">${n} selected</span><button class="btn sm" data-a="compare">${I('compare')}Compare${cur?' with mine':''}</button></div>`;
+  return h;
+}
+
+/* ---------- wallet ---------- */
+function walletScreen(){
+  const ps = S.policies, mine = ps.filter(p=>p.owner==='me');
+  const monthly = mine.reduce((a,p)=>a+p.premium,0);
+  const byDate = [...ps].sort((a,b)=>days(a.renewal)-days(b.renewal));
+  const gaps = CAT_KEYS.filter(c => need(c).interest === 'need' && !getP(c,false));
+  return `<div class="stack"><div><h1>All your insurance. One place.</h1><p class="muted" style="margin-top:6px">RONI Wallet</p></div>
+    <section class="panel pad"><div class="big">${$$(monthly)}<span>a month</span></div><p class="muted" style="margin-top:8px">${$$(monthly*12)} a year across your ${mine.length} policies</p>${spendChart(mine)}</section>
+    <button class="btn block" data-a="upload">${I('upload')}Upload a policy</button>
+    <section><h2 style="margin-bottom:10px">Policies</h2><div class="panel">${ps.map(polRow).join('')}</div>
+      <p class="muted small" style="margin-top:8px">Works with policies bought anywhere. Policies you buy through RONI appear here automatically.</p></section>
+    <section class="stack-s"><h2>Roni Monitor</h2>${alertCard()}
+      <div class="panel">${ps.map(p=>`<div class="row"><div class="grow"><div class="bold">${p.type}${p.owner!=='me'?' ('+esc(p.owner)+')':''}</div><div class="small muted"><span class="dot ${p.monitoring?'':'off'}"></span>Monitoring ${p.monitoring?'on':'off'}</div></div><button class="sw" role="switch" aria-checked="${p.monitoring}" aria-label="Monitoring for ${p.type}" data-a="mon" data-id="${p.id}"></button></div>`).join('')}</div>
+      <p class="muted small">When monitoring is on, Roni watches renewal dates, premium changes, potential savings, comparable options and coverage gaps.</p>
+      ${gaps.map(g=>`<div class="notice small"><b>Possible coverage gap:</b> you have no ${g} insurance in your Wallet. <button class="link" data-a="explore" data-c="${g}">Explore coverage</button></div>`).join('')}</section>
+    <section><h2 style="margin-bottom:10px">Upcoming renewals</h2><div class="panel">${byDate.map(p=>`<button class="row" data-a="policy" data-id="${p.id}"><div class="grow"><div class="bold">${p.type}</div><div class="muted small">${fdate(p.renewal)}</div></div><span class="tag ${days(p.renewal)<90?'warn':'grey'}">${days(p.renewal)} days</span></button>`).join('')}</div></section></div>`;
+}
+
+/* ---------- policy details ---------- */
+const TABS = [['overview','Overview'],['coverage','Coverage'],['deductibles','Deductibles'],['benefits','Benefits'],['exclusions','Exclusions'],['documents','Documents'],['renewal','Renewal'],['activity','Activity']];
+const srcBtn = (pid,k,i,label) => `<button class="src" data-a="src" data-pid="${pid}" data-k="${k}" data-i="${i}">${I('doc')}${label}</button>`;
+function policyScreen(){
+  const p = S.policies.find(x => x.id === S.pid);
+  if(!p) return `<div class="stack"><button class="back" data-a="go" data-s="wallet">${I('back')}Wallet</button><p>Policy not found.</p></div>`;
+  const d = days(p.renewal), t = S.tab;
+  let body = '';
+  if(t === 'overview'){
+    body = `<section class="stack-s"><h2>Here\u2019s what your policy means in simple terms</h2>
+      <div class="ext"><div style="margin-bottom:8px"><span class="tag">${I('lock')}Explained from your policy</span></div><p>${esc(p.summary)}</p></div>
+      <div class="gen"><div style="margin-bottom:8px"><span class="tag grey">${I('info')}General explanation</span></div><p class="small">Insurance works by sharing risk. You pay a premium, and the policy pays for covered losses above your deductible, up to the limits. What counts as covered is always decided by your policy\u2019s wording.</p></div></section>
+      <section><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h2>Key facts</h2><span class="tag">${I('lock')}Extracted from policy</span></div>
+      <div class="panel pad" style="padding-top:6px;padding-bottom:6px">${p.facts.map((f,i)=>`<button class="kv" style="width:100%" data-a="src" data-pid="${p.id}" data-k="f" data-i="${i}"><span class="muted">${f[0]}</span><b>${esc(sub(f[1]))}</b></button>`).join('')}</div></section>`;
+  } else if(t === 'coverage'){
+    body = `<section><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h2>What\u2019s covered</h2><span class="tag">${I('lock')}Extracted from policy</span></div><div class="panel">${p.items.map((it,i)=>`<div class="row" style="align-items:flex-start"><div class="grow"><div class="bold">${esc(it.n)}</div><div class="small" style="margin-top:2px">${esc(it.lim)}${it.ded&&it.ded!=='None'?', deductible '+esc(it.ded):''}</div><div class="muted small" style="margin-top:4px">${esc(it.plain)}</div><div style="margin-top:8px">${srcBtn(p.id,'i',i,'Source: Coverage section, '+esc(pgl(it.pg)))}</div></div></div>`).join('')}</div></section>`;
+  } else if(t === 'deductibles'){
+    const items = p.items.map((it,i)=>[it,i]).filter(x=>x[0].ded && x[0].ded!=='None' || /deductible/i.test(x[0].n));
+    body = `<section class="stack-s"><h2>Deductibles</h2><div class="ext"><div style="margin-bottom:8px"><span class="tag">${I('lock')}Extracted from policy</span></div>${items.map(x=>`<div class="kv"><span>${esc(x[0].n)}</span><b>${esc(x[0].ded && x[0].ded!=='None' ? x[0].ded : x[0].lim)}</b></div><div style="margin-bottom:6px">${srcBtn(p.id,'i',x[1],'Source: Coverage section, '+esc(pgl(x[0].pg)))}</div>`).join('') || '<p>No deductible listed.</p>'}</div>
+      <div class="gen"><div style="margin-bottom:8px"><span class="tag grey">${I('info')}General explanation</span></div><p class="small">A deductible is the amount you pay first when you make a claim. Example: if a covered repair costs $2,300 and your deductible is $500, you pay $500 and your policy pays $1,800. A higher deductible usually means a lower premium.</p></div></section>`;
+  } else if(t === 'benefits'){
+    body = `<section><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h2>Benefits</h2><span class="tag">${I('lock')}Extracted from policy</span></div><div class="panel">${p.benefits.map(b=>{
+      const idx = p.items.findIndex(it=>b.toLowerCase().includes(it.n.toLowerCase().split(' ')[0]));
+      return `<div class="row"><div class="mini">${I('check')}</div><div class="grow">${esc(b)}</div>${idx>-1?srcBtn(p.id,'i',idx,esc(pgl(p.items[idx].pg))):''}</div>`;}).join('')}</div></section>`;
+  } else if(t === 'exclusions'){
+    body = `<section><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px"><h2>What\u2019s not covered</h2><span class="tag">${I('lock')}Extracted from policy</span></div><div class="panel">${p.excl.map((e,i)=>`<div class="row"><div class="grow">${esc(e[0])}</div>${srcBtn(p.id,'x',i,'Source: Exclusions, '+esc(pgl(e[1])))}</div>`).join('')}</div>
+      <div class="gen" style="margin-top:14px"><div style="margin-bottom:8px"><span class="tag grey">${I('info')}General explanation</span></div><p class="small">Exclusions are situations the policy does not pay for. Some can be added back with an endorsement, so ask your carrier if one matters to you.</p></div></section>`;
+  } else if(t === 'documents'){
+    body = `<section><h2 style="margin-bottom:10px">Documents</h2><div class="panel">${[[p.type+' policy document.pdf', p.purchased?'Quote summary from RONI':'Uploaded and analyzed'],['Declarations page.pdf','Coverage summary'],['Proof of insurance.pdf','ID card']].map(d=>`<button class="row" data-a="doc"><div class="ico">${I('doc')}</div><div class="grow"><div class="bold">${esc(d[0])}</div><div class="muted small">${d[1]}</div></div>${I('chev')}</button>`).join('')}</div></section>`;
+  } else if(t === 'renewal'){
+    body = `<section class="stack-s"><h2>Renewal</h2>
+      <div class="panel pad"><div class="kv"><span class="muted">Renewal date</span><b>${fdate(p.renewal)}</b></div><div class="kv"><span class="muted">Time left</span><b>${d} days</b></div><div class="kv"><span class="muted">Current premium</span><b>${$$(p.premium)}/month</b></div>${p.renewalPremium?`<div class="kv"><span class="muted">Renewal premium</span><b>${$$(p.renewalPremium)}/month (up ${$$(p.renewalPremium-p.premium)})</b></div>`:''}</div>
+      <div class="panel pad"><div style="display:flex;align-items:center;gap:14px"><div style="flex:1"><div class="bold">Monitoring</div><div class="muted small">Roni watches renewal date, premium changes, potential savings, comparable options and coverage gaps.</div></div><button class="sw" role="switch" aria-checked="${p.monitoring}" aria-label="Monitoring" data-a="mon" data-id="${p.id}"></button></div></div>
+      ${p.cat==='auto'?alertCard():''}
+      ${p.cat==='auto'&&p.monitoring?`<button class="btn block" data-a="compareauto">Compare with my policy</button>`:''}</section>`;
+  } else {
+    const act = (p.act||[]).concat((p.actExtra||[]));
+    body = `<section><h2 style="margin-bottom:12px">Activity</h2><div class="tl">${act.length?act.map(a=>`<div><div class="muted small">${esc(a[0])}</div><div>${esc(a[1])}</div></div>`).join(''):'<div><div>No activity yet.</div></div>'}</div></section>`;
+  }
+  return `<div class="stack"><button class="back" data-a="go" data-s="wallet">${I('back')}Wallet</button>
+    <div style="display:flex;gap:14px;align-items:center"><div class="ico" style="width:52px;height:52px">${I(CATS[p.cat].icon)}</div>
+      <div><h1 style="font-size:24px">${esc(p.carrier)}</h1><div class="muted">${p.type}, ${esc(p.label)}</div></div></div>
+    <div class="panel pad"><div style="display:flex;justify-content:space-between;align-items:flex-end;gap:10px"><div class="price">${$$(p.premium)}<small>/month</small></div>
+      <div class="end small"><span class="tag good">Active</span><div class="bold" style="margin-top:4px">Renews ${fdate(p.renewal)}</div><div class="muted">in ${d} days</div></div></div>
+      <div class="hr"></div><div style="display:flex;align-items:center;gap:14px"><div style="flex:1"><div class="bold">Monitoring: ${p.monitoring?'ON':'OFF'}</div><div class="muted small">Watches renewal, price and comparable options.</div></div>
+      <button class="sw" role="switch" aria-checked="${p.monitoring}" aria-label="Monitoring" data-a="mon" data-id="${p.id}"></button></div></div>
+    ${p.owner&&p.owner!=='me'?`<div class="notice small">This is ${esc(p.owner)}\u2019s policy. You can organize it here, but changes to another adult\u2019s policy need their authorization.</div>`:''}
+    <div class="tabs" role="tablist">${TABS.map(x=>`<button class="tab ${t===x[0]?'on':''}" role="tab" aria-selected="${t===x[0]}" data-a="tab" data-k="${x[0]}">${x[1]}</button>`).join('')}</div>
+    ${body}
+    <button class="btn block" data-a="askpolicy" data-id="${p.id}">Ask Roni about this policy</button></div>`;
+}
+
+/* ---------- Ask Roni ---------- */
+function chatMsg(m){
+  if(m.role === 'user') return `<div class="bub u">${esc(m.text)}</div>`;
+  const parts = m.parts.map(pt => {
+    const tag = pt.kind === 'policy' ? `<span class="tag">${I('lock')}From your policy</span>` : pt.kind === 'wallet' ? `<span class="tag">${I('wallet')}From your wallet</span>` : `<span class="tag grey">${I('info')}General insurance info</span>`;
+    const list = pt.list ? `<ul class="clean" style="margin-top:6px">${pt.list.map(l=>`<li>${esc(l)}</li>`).join('')}</ul>` : '';
+    const srcs = pt.sources && pt.sources.length ? `<div class="srcs">${pt.sources.map(s=>{const p=S.policies.find(x=>x.id===s.pid); if(!p) return ''; const it = s.k==='i'?p.items[s.i]:null; const pg = s.k==='i'?it.pg:s.k==='x'?p.excl[s.i][1]:p.facts[s.i][2];
+      const lab = s.k==='i' ? `Source: ${esc(p.type)} policy \u2014 ${esc(it.n)} \u2014 ${esc(pgl(pg)).replace(/^p/,'P')}` : s.k==='x' ? `Source: Exclusions \u2014 ${esc(pgl(pg)).replace(/^p/,'P')}` : `Source: Policy document \u2014 ${esc(pgl(pg)).replace(/^p/,'P')}`;
+      return `<button class="src" data-a="src" data-pid="${s.pid}" data-k="${s.k}" data-i="${s.i}">${I('doc')}${lab}</button>`;}).join('')}</div>` : '';
+    return `<div class="part"><div style="margin-bottom:6px">${tag}</div><div>${esc(pt.text)}</div>${list}${srcs}</div>`;
+  }).join('');
+  const acts = m.actions && m.actions.length ? `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:12px">${m.actions.map(a=>`<button class="btn soft sm" data-a="chatact" data-t="${a.t}" data-c="${a.c||''}" data-q="${esc(a.q||'')}" data-id="${a.id||''}">${esc(a.label)}</button>`).join('')}</div>` : '';
+  return `<div class="rrow">${ORB(32)}<div class="bub r">${parts}${acts}</div></div>`;
+}
+function askScreen(){
+  if(!S.chat.length) S.chat.push({role:'roni', parts:[{kind:'general', text:`Woof! Hi ${S.user.first}, I\u2019m Roni. Ask me about your policies, compare options, or tell me what you need and I\u2019ll take you there.`}]});
+  const sugg = ['If someone steals my car tonight, am I covered?','Explain my deductible','When does my auto insurance renew?','Find something similar for less money','I need renters insurance'];
+  const live = S.settings.ai && DB.sample;
+  return `<div class="top" style="margin-bottom:14px"><div style="display:flex;align-items:center;gap:12px">${ORB(46)}<div><h1 style="font-size:24px">Ask Roni</h1><div class="muted small">Your insurance assistant. ${live ? '<span class="tag" style="margin-left:4px">'+I('star')+'AI on</span>' : '<span class="tag grey" style="margin-left:4px">Offline answers</span>'}</div></div></div></div>
+    <div class="msgs">${S.chat.map(chatMsg).join('')}${S.typing?`<div class="rrow">${ORB(32)}<div class="bub r"><div class="typing" aria-label="Roni is thinking"><i></i><i></i><i></i></div>${S.ctl&&live?`<div class="muted xs" style="padding:0 14px 10px">Reading your policies\u2026 <button class="link" data-a="stopai">Stop</button></div>`:''}</div></div>`:''}</div>
+    <div class="composer"><div class="chips" style="margin-bottom:8px">${sugg.map(q=>`<button class="chip" data-a="prompt" data-q="${esc(q)}">${esc(q)}</button>`).join('')}</div>
+      <div class="askbar"><button class="mini" data-a="attach" aria-label="Attach a policy">${I('clip')}</button><input id="chatIn" placeholder="Ask anything about your insurance\u2026" aria-label="Message Roni"><button class="mini ${S.listening?'rec':''}" data-a="voice" aria-label="Voice">${I('mic')}</button><button class="sendbtn" data-a="send" aria-label="Send">${I('send')}</button></div></div>`;
+}
+/* ---------- profile, privacy, rewards ---------- */
+/* ---------- needs, profile editing, policy database (admin) ---------- */
+const INTERESTS = [['need','I need this'],['watching','Just watching'],['no','Not for me']];
+const DEDS = [[null,'Any'],[250,'$250'],[500,'$500'],[1000,'$1,000'],[2500,'$2,500']];
+const LEVELS = ['Minimum','Balanced','High'];
+function needCard(c){
+  const n = need(c), have = getP(c, false);
+  return `<section class="panel pad stack-s">
+    <div style="display:flex;align-items:center;gap:12px"><div class="ico">${I(CATS[c].icon)}</div><h2 style="flex:1">${CATS[c].label}</h2>${have?`<span class="tag good">In your Wallet</span>`:''}</div>
+    <div><div class="small bold" style="margin-bottom:6px">Where you are</div><div style="display:flex;flex-wrap:wrap;gap:8px">${INTERESTS.map(x=>`<button class="chip ${n.interest===x[0]?'on':''}" data-a="needint" data-c="${c}" data-v="${x[0]}" aria-pressed="${n.interest===x[0]}">${x[1]}</button>`).join('')}</div></div>
+    <div><div class="small bold" style="margin-bottom:6px">What matters most</div><div style="display:flex;flex-wrap:wrap;gap:8px">${PRIOS.map(x=>`<button class="chip ${n.prios.includes(x[0])?'on':''}" data-a="needprio" data-c="${c}" data-k="${x[0]}" aria-pressed="${n.prios.includes(x[0])}">${x[1]}</button>`).join('')}</div></div>
+    <div><div class="small bold" style="margin-bottom:6px">Coverage level</div><div style="display:flex;flex-wrap:wrap;gap:8px">${LEVELS.map(x=>`<button class="chip ${n.level===x?'on':''}" data-a="needlvl" data-c="${c}" data-v="${x}" aria-pressed="${n.level===x}">${x}</button>`).join('')}</div></div>
+    <div><div class="small bold" style="margin-bottom:6px">Highest deductible you are comfortable with</div><div style="display:flex;flex-wrap:wrap;gap:8px">${DEDS.map(x=>`<button class="chip ${n.maxDed===x[0]?'on':''}" data-a="needded" data-c="${c}" data-v="${x[0]===null?'':x[0]}" aria-pressed="${n.maxDed===x[0]}">${x[1]}</button>`).join('')}</div></div>
+    <label class="field"><span>Monthly budget (optional)</span><input class="inp" type="number" min="0" inputmode="numeric" data-need="budget" data-c="${c}" value="${n.budget === null || n.budget === undefined ? '' : n.budget}" placeholder="No limit"></label>
+    <label class="field"><span>Anything Roni should know?</span><input class="inp" data-need="notes" data-c="${c}" maxlength="200" value="${esc(n.notes || '')}" placeholder="For example: I drive for work on weekends"></label>
+  </section>`;
+}
+function needsScreen(){
+  return `<div class="stack"><button class="back" data-a="go" data-s="profile">${I('back')}Profile</button>
+    <div><h1>My insurance needs</h1><p class="muted" style="margin-top:6px">Tell Roni what matters to you. Roni uses this to pre-fill quotes, rank options your way, flag gaps and answer your questions. Changes save automatically.</p></div>
+    ${CAT_KEYS.map(needCard).join('')}</div>`;
+}
+function editProfileScreen(){
+  const p = S.profile;
+  const inp = (id, label, val, type, ph) => `<label class="field"><span>${label}</span><input class="inp" id="${id}" type="${type || 'text'}" value="${esc(val || '')}" placeholder="${esc(ph || '')}"></label>`;
+  const list = (k, label, ph) => `<div><div class="small bold" style="margin-bottom:6px">${label}</div>${(p[k] || []).map((v,i)=>`<div style="display:flex;gap:8px;margin-bottom:8px"><input class="inp" id="ep-${k}-${i}" value="${esc(v)}" placeholder="${esc(ph)}" aria-label="${label} ${i+1}"><button class="btn ghost sm" data-a="rmitem" data-k="${k}" data-i="${i}" aria-label="Remove">${I('close')}</button></div>`).join('')}<button class="btn soft sm" data-a="additem" data-k="${k}">${I('plus')}Add</button></div>`;
+  return `<div class="stack"><button class="back" data-a="go" data-s="profile">${I('back')}Profile</button>
+    <div><h1>Edit my profile</h1><p class="muted" style="margin-top:6px">Enter it once. Roni reuses it in every quote and only asks for what is missing.</p></div>
+    <section class="panel pad stack-s"><h2>About you</h2>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">${inp('ep-first','First name',S.user.first)}${inp('ep-last','Last name',S.user.last)}</div>
+      ${inp('ep-email','Email',S.user.email,'email')}${inp('ep-dob','Date of birth',p.dob,'date')}${inp('ep-income','Household income (optional)',p.income,'text','For example: $85,000')}</section>
+    <section class="panel pad stack-s"><h2>Address</h2>${inp('ep-street','Street',p.street)}
+      <div style="display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px">${inp('ep-city','City',p.city)}${inp('ep-state','State',p.state)}${inp('ep-zip','ZIP',p.zip,'text','43215')}</div></section>
+    <section class="panel pad stack-s"><h2>Household</h2>
+      ${S.members.length ? S.members.map((m,i)=>`<div class="row" style="padding:6px 0"><div class="mini">${I('user')}</div><div class="grow"><div class="bold">${esc(m.name)}</div><div class="muted small">${esc(m.rel)}</div></div><button class="btn ghost sm" data-a="rmmember" data-i="${i}" aria-label="Remove ${esc(m.name)}">${I('close')}</button></div>`).join('') : '<p class="muted small">No one added yet.</p>'}
+      <button class="btn soft sm" data-a="addmember">${I('plus')}Add household member</button>
+      <p class="muted small">Roni never changes another adult\u2019s policy without their authorization.</p></section>
+    <section class="panel pad stack-s"><h2>Things to protect</h2>${list('vehicles','Vehicles','2021 Honda Civic LX')}${list('properties','Properties','Rented apartment')}${list('pets','Pets','Biscuit, Labrador, 4 years')}</section>
+    <button class="btn block" data-a="saveprofile">Save changes</button></div>`;
+}
+function collectProfile(){
+  const g = id => { const e = document.getElementById(id); return e && typeof e.value === 'string' ? e.value : null; };
+  const put = (obj, k, id) => { const v = g(id); if(v !== null) obj[k] = v.trim(); };
+  put(S.user,'first','ep-first'); put(S.user,'last','ep-last'); put(S.user,'email','ep-email');
+  ['dob','street','city','state','zip','income'].forEach(k => put(S.profile, k, 'ep-' + k));
+  ['vehicles','properties','pets'].forEach(k => (S.profile[k] || []).forEach((_,i) => { const v = g(`ep-${k}-${i}`); if(v !== null) S.profile[k][i] = v.trim(); }));
+}
+function profileScreen(){
+  const p = S.profile, mine = S.policies.filter(x=>x.owner==='me');
+  const fields = [S.user.first, S.user.last, S.user.email, p.dob, p.street, p.city, p.state, p.zip, p.income, (p.vehicles||[]).length, (p.properties||[]).length, (p.pets||[]).length, S.members.length];
+  const pct = Math.round(fields.filter(Boolean).length / fields.length * 100);
+  const kv = (a,b) => `<div class="kv"><span class="muted">${a}</span><b>${b || '<span class="muted">Not added</span>'}</b></div>`;
+  const acc = (k, title, body) => `<div style="border-top:1px solid var(--line)"><button class="row" style="border:0" data-a="acc" data-k="${k}" aria-expanded="${!!S.acc[k]}"><div class="grow bold">${title}</div>${I(S.acc[k]?'down':'chev')}</button>${S.acc[k]?`<div style="padding:0 16px 14px" class="small">${body}</div>`:''}</div>`;
+  const nd = CAT_KEYS.filter(c=>need(c).interest==='need').map(c=>CATS[c].label).join(', ') || 'None';
+  return `<div class="stack"><div style="display:flex;align-items:center;gap:14px"><div class="avatar" style="width:56px;height:56px;font-size:22px">${esc(S.user.first[0]||'A')}</div><div><h1 style="font-size:24px">${esc(fullName())}</h1><div class="muted small">${esc(S.user.email)}</div></div></div>
+    <section class="panel pad"><div style="display:flex;justify-content:space-between"><h2>Your insurance profile</h2><span class="bold">${pct}%</span></div><div class="bar" style="margin:10px 0 6px"><i style="width:${pct}%"></i></div><p class="muted small">Enter it once. Roni reuses it everywhere and only asks what is missing.</p></section>
+    <div class="panel">
+      <button class="row" data-a="go" data-s="editprofile"><div class="ico">${I('user')}</div><div class="grow"><div class="bold">Edit my profile</div><div class="muted small">Personal details, address, household, assets</div></div>${I('chev')}</button>
+      <button class="row" data-a="go" data-s="needs"><div class="ico">${I('star')}</div><div class="grow"><div class="bold">My insurance needs</div><div class="muted small">Looking for: ${esc(nd)}</div></div>${I('chev')}</button>
+      ${DB.admin?`<button class="row" data-a="go" data-s="catalog"><div class="ico">${I('doc')}</div><div class="grow"><div class="bold">Policy database</div><div class="muted small">Manage the products Roni compares</div></div>${I('chev')}</button>`:''}
+    </div>
+    <div class="panel">
+      ${acc('person','Personal information',kv('Name',esc(fullName()))+kv('Date of birth',p.dob?esc(fdate(p.dob)):'')+kv('Address',esc(tok('address')))+kv('Household income',esc(p.income)))}
+      ${acc('house','Household',S.members.map(m=>`<div class="kv"><span class="muted">${esc(m.rel)}</span><b>${esc(m.name)}</b></div>`).join('')||'<span class="muted">No one added</span>')}
+      ${acc('assets','Assets',kv('Vehicles',esc((p.vehicles||[]).join(', ')))+kv('Properties',esc((p.properties||[]).join(', ')))+kv('Pets',esc((p.pets||[]).join(', '))))}
+      ${acc('ins','Insurance',kv('Policies in Wallet',mine.length+' yours, '+(S.policies.length-mine.length)+' organized for others')+kv('Monthly cost',$$(mine.reduce((a,x)=>a+x.premium,0))))}
+    </div>
+    <div class="panel">
+      <button class="row" data-a="go" data-s="privacy"><div class="ico">${I('lock')}</div><div class="grow"><div class="bold">Privacy center</div><div class="muted small">Alerts, AI and contact permissions</div></div>${I('chev')}</button>
+      <button class="row" data-a="go" data-s="rewards"><div class="ico">${I('star')}</div><div class="grow"><div class="bold">Roni Rewards</div><div class="muted small">${points().toLocaleString('en-US')} points</div></div>${I('chev')}</button>
+      <button class="row" data-a="money"><div class="ico">${I('info')}</div><div class="grow bold">How RONI makes money</div>${I('chev')}</button></div>
+    <div style="display:flex;gap:10px"><button class="btn ghost sm" data-a="reset">Reset demo</button><button class="btn ghost sm" data-a="go" data-s="welcome">Log out</button></div>
+    <p class="muted xs">Prototype v0.4. Your profile and wallet are saved privately to your account. Policy data is fictional.</p></div>`;
+}
+function catalogScreen(){
+  const c = S.catAdmin, opts = ((CATALOG[c] || {}).options) || [];
+  const all = Object.values(CATALOG).reduce((a,d)=>a.concat(d.options || []), []);
+  const carriers = new Set(all.map(o=>o.carrier)), ver = all.filter(o=>o.status==='verified').length;
+  return `<div class="stack"><button class="back" data-a="go" data-s="profile">${I('back')}Profile</button>
+    <div><h1>Policy database</h1><p class="muted" style="margin-top:6px">The products Roni compares from. Everything is marked illustrative until you verify it with a carrier or a licensed data partner.</p></div>
+    <section class="panel pad"><div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px;text-align:center"><div><div class="bold" style="font-size:26px">${all.length}</div><div class="muted small">Products</div></div><div><div class="bold" style="font-size:26px">${carriers.size}</div><div class="muted small">Carriers</div></div><div><div class="bold" style="font-size:26px">${ver}</div><div class="muted small">Verified</div></div></div></section>
+    <div class="chips">${CAT_KEYS.map(k=>`<button class="chip ${k===c?'on':''}" data-a="catcat" data-c="${k}">${I(CATS[k].icon)}${CATS[k].label} (${((CATALOG[k]||{}).options||[]).length})</button>`).join('')}</div>
+    ${opts.length ? `<div class="panel">${opts.map(o=>`<button class="row" data-a="catedit" data-id="${o.id}"><div class="grow"><div class="bold">${esc(o.plan?o.plan+': ':'')}${esc(o.carrier)}</div><div class="muted small">${esc(o.covText)}</div><div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:6px"><span class="tag ${o.status==='verified'?'good':'grey'}">${o.status==='verified'?'Verified':'Illustrative'}</span>${o.kind==='watch'?'<span class="tag">Monitoring find</span>':''}${o.sponsored?'<span class="tag spons">Sponsored</span>':''}</div></div><div class="end bold">${$$(o.price)}/mo</div>${I('chev')}</button>`).join('')}</div>` : `<div class="notice">No ${CATS[c].label.toLowerCase()} products yet. Add one or import a list.</div>`}
+    <div style="display:flex;gap:10px;flex-wrap:wrap"><button class="btn sm" data-a="catadd">${I('plus')}Add product</button><button class="btn ghost sm" data-a="catimport">Import JSON</button><button class="btn ghost sm" data-a="catexport">Export JSON</button></div>
+    <div class="ext"><h3>How real data gets in</h3><p style="margin-top:6px" class="small">Real prices and coverage come from carriers or licensed partners, not from scraping websites. Map a partner feed to these fields (carrier, price, coverage, deductible, benefits, exclusions, purchase modes), then import it here. Mark entries Verified only when a source confirms them.</p></div></div>`;
+}
+function catSheet(s){
+  const o = s.o, chipRow = (k, arr, cur) => `<div style="display:flex;flex-wrap:wrap;gap:8px">${arr.map(v=>`<button class="chip ${cur===v?'on':''}" data-a="cpset" data-k="${k}" data-v="${v}">${v}</button>`).join('')}</div>`;
+  const fld = (id, label, val, type, ph) => `<label class="field"><span>${label}</span><input class="inp" id="${id}" type="${type || 'text'}" value="${esc(val === undefined || val === null ? '' : val)}" placeholder="${esc(ph || '')}"></label>`;
+  return `<h2>${s.id ? 'Edit product' : 'Add product'}: ${CATS[s.cat].label}</h2><div class="stack-s" style="margin-top:12px">
+    ${fld('cp-carrier','Carrier',o.carrier)}${fld('cp-plan','Plan name (optional)',o.plan)}
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">${fld('cp-price','Price per month',o.price,'number')}${fld('cp-cov','Coverage score 0 to 100',o.cov,'number')}${fld('cp-ded','Deductible',o.ded,'number')}</div>
+    ${fld('cp-covText','Coverage summary',o.covText,'text','100/300 liability')}
+    ${fld('cp-benefits','Benefits (separate with semicolons)',(o.benefits||[]).join('; '))}${fld('cp-excl','Important exclusions (separate with semicolons)',(o.excl||[]).join('; '))}
+    <div><div class="small bold" style="margin-bottom:6px">How can someone buy it?</div><div style="display:flex;flex-wrap:wrap;gap:8px">${[['roni','Buy with RONI'],['carrier','Continue with carrier'],['licensed','Licensed assistance']].map(m=>`<button class="chip ${(o.modes||[]).includes(m[0])?'on':''}" data-a="cpmode" data-v="${m[0]}" aria-pressed="${(o.modes||[]).includes(m[0])}">${m[1]}</button>`).join('')}</div></div>
+    <div><div class="small bold" style="margin-bottom:6px">Type</div>${chipRow('kind',['quote','watch'],o.kind)}</div>
+    <div><div class="small bold" style="margin-bottom:6px">Data status</div>${chipRow('status',['illustrative','verified'],o.status)}</div>
+    <div><div class="small bold" style="margin-bottom:6px">Source</div>${chipRow('source',['fictional','manual','api'],o.source)}</div>
+    <button class="chip ${o.sponsored?'on':''}" style="align-self:flex-start" data-a="cpset" data-k="sponsored" data-v="${o.sponsored?'':'1'}" aria-pressed="${!!o.sponsored}">Sponsored placement</button>
+    <button class="btn block" data-a="catsave">Save product</button>
+    ${s.id?`<button class="btn ghost block" style="color:var(--bad)" data-a="catdelete">${s.cd?'Tap again to delete':'Delete product'}</button>`:''}
+    <button class="btn ghost block" style="border:0" data-a="close">Cancel</button></div>`;
+}
+function collectCat(s){
+  const g = id => { const e = document.getElementById(id); return e && typeof e.value === 'string' ? e.value : null; };
+  const o = s.o, sv = (k, id, f) => { const v = g(id); if(v !== null) o[k] = f ? f(v) : v.trim(); };
+  sv('carrier','cp-carrier'); sv('plan','cp-plan'); sv('price','cp-price', v=>Number(v)||0); sv('cov','cp-cov', v=>Math.max(0,Math.min(100,Number(v)||0))); sv('ded','cp-ded', v=>Number(v)||0);
+  sv('covText','cp-covText'); sv('benefits','cp-benefits', v=>v.split(';').map(x=>x.trim()).filter(Boolean)); sv('excl','cp-excl', v=>v.split(';').map(x=>x.trim()).filter(Boolean));
+}
+function normalizeOpt(x, cat){
+  if(!x || typeof x.carrier !== 'string' || !x.carrier.trim() || !(Number(x.price) > 0)) return null;
+  const arr = v => Array.isArray(v) ? v.map(String) : (typeof v === 'string' ? v.split(';').map(s=>s.trim()).filter(Boolean) : []);
+  const modes = arr(x.modes).filter(m=>['roni','carrier','licensed'].includes(m));
+  return {id:String(x.id || (cat + '-' + Math.random().toString(36).slice(2,8))), carrier:x.carrier.trim().slice(0,80), plan:x.plan ? String(x.plan).slice(0,60) : undefined,
+    price:Number(x.price), cov:Math.max(0,Math.min(100,Number(x.cov) || 50)), covText:String(x.covText || '').slice(0,160), ded:Number(x.ded) || 0,
+    benefits:arr(x.benefits).slice(0,8), excl:arr(x.excl).slice(0,8), modes:modes.length ? modes : ['carrier'], sponsored:!!x.sponsored,
+    kind:x.kind === 'watch' ? 'watch' : 'quote', status:x.status === 'verified' ? 'verified' : 'illustrative', source:['fictional','manual','api'].includes(x.source) ? x.source : 'manual', updated:TODAY.toISOString().slice(0,10),
+    attrs:Array.isArray(x.attrs) ? x.attrs : undefined};
+}
+
+
+function privacyScreen(){
+  return `<div class="stack"><button class="back" data-a="go" data-s="profile">${I('back')}Profile</button>
+    <div><h1>Your information is private.</h1><p style="margin-top:8px;font-size:17px">RONI does not sell your personal information to multiple insurance agents.</p></div>
+    ${privacyRows()}
+    <div class="ext"><h3>Before we share anything</h3><p style="margin-top:6px">If a purchase needs a licensed professional, Roni asks your explicit permission first. Only then is your contact information shared, and only with that one professional.</p></div>
+    ${S.requests.length?`<section><h3 style="margin-bottom:8px">Permissions you granted</h3><div class="panel">${S.requests.map(r=>`<div class="row"><div class="grow">Licensed assistance for ${esc(r)}</div><span class="tag good">Shared with 1 professional</span></div>`).join('')}</div></section>`:''}
+    <p class="muted small" style="text-align:center">Your data. Your insurance. Your choice.</p></div>`;
+}
+function rewardsScreen(){
+  const ways = [['Complete your insurance profile',200],['Upload a policy',150],['Purchase eligible insurance through RONI',500],['Renew eligible insurance through RONI',300]];
+  return `<div class="stack"><button class="back" data-a="go" data-s="profile">${I('back')}Profile</button>
+    <div class="deep"><div style="opacity:.8">Roni Rewards</div><div class="big" style="color:var(--sun);margin-top:6px">${points().toLocaleString('en-US')}<span style="color:var(--deeptext);opacity:.8">points</span></div></div>
+    <section><h2 style="margin-bottom:10px">Ways to earn</h2><div class="panel">${ways.map(w=>`<div class="row"><div class="grow">${w[0]}</div><span class="tag">+${w[1]}</span></div>`).join('')}</div></section>
+    <section><h2 style="margin-bottom:10px">Your activity</h2><div class="panel">${[...S.log].reverse().map(l=>`<div class="row"><div class="grow">${esc(l[0])}</div><b>+${l[1]}</b></div>`).join('')}</div></section>
+    <div class="notice warn small">Reward availability and eligibility may depend on insurance provider and applicable regulations.</div></div>`;
+}
+
+/* ---------- nav ---------- */
+const APP_SCREENS = ['home','market','flow','results','wallet','policy','ask','profile','privacy','rewards','needs','editprofile','catalog'];
+function renderNav(){
+  const nav = document.getElementById('nav');
+  nav.classList.toggle('on', APP_SCREENS.includes(S.screen));
+  const map = {policy:'wallet', rewards:'profile', privacy:'profile', needs:'profile', editprofile:'profile', catalog:'profile', flow:'market', results:'market'};
+  const cur = map[S.screen] || S.screen;
+  const b = (s,ic,l) => `<button class="nb ${cur===s?'act':''}" data-a="go" data-s="${s}" ${cur===s?'aria-current="page"':''}>${I(ic)}${l}</button>`;
+  nav.innerHTML = `<div class="brand">${ORB(30)}RONI</div>` + b('home','home','Home') + b('market','market','Marketplace') +
+    `<button class="nb ask ${cur==='ask'?'act':''}" data-a="go" data-s="ask" ${cur==='ask'?'aria-current="page"':''} aria-label="Ask Roni"><span class="orbwrap">${ORB(56)}</span>Ask Roni</button>` +
+    b('wallet','wallet','Wallet') + b('profile','user','Profile');
+}
+
+/* ---------- sheets ---------- */
+function attrOf(o,l){ const a = (o.attrs||[]).find(x=>x[0]===l); return a ? a[1] : '\u2014'; }
+function sheetHTML(){
+  const s = S.sheet; if(!s) return '';
+  let body = '';
+  if(s.t === 'money'){
+    body = `<h2>How RONI makes money</h2><div class="stack-s" style="margin-top:12px"><p><b>RONI is free for consumers.</b></p>
+      <p>If you purchase certain insurance products through RONI, we may receive compensation from the insurance provider.</p>
+      <p>Sponsored relationships never change your organic comparison results. Sponsored placements are always labeled and shown separately.</p>
+      <button class="btn block" data-a="close">Got it</button></div>`;
+  }
+  else if(s.t === 'src'){
+    const p = S.policies.find(x=>x.id===s.pid); let title, pg, ex, plain = '', section;
+    if(s.k === 'i'){ const it = p.items[s.i]; title = it.n; pg = it.pg; section = 'Coverage section'; ex = it.ex || `${it.n}: ${it.lim}. ${it.plain}`; plain = it.plain; }
+    else if(s.k === 'x'){ const e = p.excl[s.i]; title = 'Not covered'; pg = e[1]; section = 'Exclusions section'; ex = e[2] || e[0]; plain = e[0]; }
+    else { const f = p.facts[s.i]; title = f[0]; pg = f[2]; section = 'Policy document'; ex = `${f[0]}: ${sub(f[1])}`; plain = sub(f[1]); }
+    body = `<span class="tag">${I('lock')}Extracted from your policy</span><h2 style="margin-top:10px">${esc(title)}</h2>
+      <p class="muted" style="margin:4px 0 12px">Source: ${section} \u2014 ${esc(pgl(pg)).replace(/^p/,'P')}</p>
+      <div class="quote">${esc(ex)}</div>
+      <p style="margin-top:14px"><b>What Roni understood:</b> ${esc(plain)}</p>
+      <p class="muted small" style="margin-top:12px">Roni keeps facts from your policy separate from general insurance explanations so you always know which is which. The excerpt is fictional in this prototype.</p>
+      <button class="btn block" style="margin-top:16px" data-a="close">Close</button>`;
+  }
+  else if(s.t === 'compare'){
+    const c = s.cat || S.cat, cur = getP(c);
+    const opts = (S.sel[c] || []).map(id => findOpt(c,id)).filter(Boolean);
+    const cols = [];
+    if(cur) cols.push({cur:true, carrier:cur.carrier, price:cur.premium, covText:cur.covText, ded:cur.ded, benefits:cur.benefits, excl:cur.excl.map(e=>e[0]), attrs:cur.attrs});
+    opts.forEach(o => cols.push(o));
+    const row = (label, fn) => `<tr><th scope="row">${label}</th>${cols.map(o=>`<td>${fn(o)}</td>`).join('')}</tr>`;
+    const ul = a => a.length ? `<ul class="clean small">${a.slice(0,3).map(x=>`<li>${esc(x)}</li>`).join('')}</ul>` : '\u2014';
+    const hasAttr = c === 'auto';
+    body = `<h2>${CATS[c].label} side by side</h2><p class="muted small" style="margin:4px 0 12px">Based on the priorities you selected, these options most closely match your criteria. Nothing here is a universal best.</p>
+      ${cols.length < 2 ? '<p>Select at least one option to compare.</p>' : ''}
+      <div class="scrollx"><table class="tbl"><thead><tr><th></th>${cols.map(o=>`<th scope="col">${esc(o.carrier)}${o.cur?'<div><span class="tag" style="margin-top:4px">Yours</span></div>':o.sponsored?'<div><span class="tag spons" style="margin-top:4px">Sponsored</span></div>':''}</th>`).join('')}</tr></thead><tbody>
+      ${row('Price',o=>`<b>${$$(o.price)}</b>/month`)}${row('Per year',o=>$$(o.price*12))}${row('Coverage',o=>esc(o.covText))}${row('Deductible',o=>o.ded?$$(o.ded):'None')}
+      ${hasAttr?row('Rental',o=>attrOf(o,'Rental coverage'))+row('Roadside',o=>attrOf(o,'Roadside assistance')):''}
+      ${row('Benefits',o=>ul(o.benefits))}${row('Exclusions',o=>ul(o.excl))}
+      <tr><th></th>${cols.map(o=>o.cur?'<td></td>':`<td><button class="btn sm" data-a="buy" data-c="${c}" data-id="${o.id}">Get this</button></td>`).join('')}</tr>
+      </tbody></table></div>
+      <button class="btn ghost block" style="margin-top:14px" data-a="close">Close</button>`;
+  }
+  else if(s.t === 'details'){
+    const o = findOpt(s.c, s.id);
+    body = `<h2>${o.plan?esc(o.plan)+': ':''}${esc(o.carrier)}</h2><p class="muted" style="margin:4px 0 12px">${$$(o.price)}/month, ${$$(o.price*12)} a year. ${o.sponsored?'<span class="tag spons">Sponsored</span>':''}</p>
+      <div class="panel pad" style="padding-top:6px;padding-bottom:6px"><div class="attr"><span class="muted">Coverage</span><b>${esc(o.covText)}</b></div><div class="attr"><span class="muted">Deductible</span><b>${o.ded?$$(o.ded):'None'}</b></div>${(o.attrs||[]).filter(a=>!['Deductible','Liability'].includes(a[0])).map(a=>`<div class="attr"><span class="muted">${a[0]}</span><b>${a[1]}</b></div>`).join('')}</div>
+      <h3 style="margin:16px 0 6px">Benefits</h3><ul class="clean">${o.benefits.map(b=>`<li>${esc(b)}</li>`).join('')}</ul>
+      <h3 style="margin:16px 0 6px">Important exclusions</h3><ul class="clean x">${o.excl.map(b=>`<li>${esc(b)}</li>`).join('')}</ul>
+      <p class="muted small" style="margin-top:12px">Fictional quote. A real quote depends on your full application.</p>
+      <div style="display:flex;gap:10px;margin-top:14px"><button class="btn ghost wide" data-a="askopt" data-c="${s.c}" data-id="${o.id}">Ask Roni</button><button class="btn wide" data-a="buy" data-c="${s.c}" data-id="${o.id}">Get this</button></div>`;
+  }
+  else if(s.t === 'buy'){
+    const o = findOpt(s.c, s.id), m = o.modes;
+    body = `<h2>Get ${esc(o.carrier)} ${CATS[s.c].label.toLowerCase()} insurance</h2>
+      <p class="muted" style="margin:4px 0 14px">${$$(o.price)}/month, ${esc(o.covText)}. Choose how you want to finish.</p><div class="stack-s">
+      ${m.includes('roni')?`<button class="btn block" data-a="buyroni" data-c="${s.c}" data-id="${o.id}">Buy with RONI</button>`:''}
+      ${m.includes('carrier')?`<button class="btn ghost block" data-a="carrier" data-n="${esc(o.carrier)}">Continue with carrier</button>`:''}
+      ${m.includes('licensed')?`<div class="notice small">Licensed assistance may be required to complete this purchase.</div><button class="btn soft block" data-a="licensed" data-c="${s.c}" data-id="${o.id}">Request licensed assistance</button>`:''}
+      <button class="btn ghost block" style="border:0" data-a="close">Not now</button></div>`;
+  }
+  else if(s.t === 'confirm'){
+    const o = findOpt(s.c, s.id);
+    body = `<h2>Confirm your purchase</h2><div class="panel pad" style="margin:12px 0"><div class="kv"><span class="muted">Carrier</span><b>${esc(o.carrier)}</b></div><div class="kv"><span class="muted">Coverage</span><b>${esc(o.covText)}</b></div><div class="kv"><span class="muted">Deductible</span><b>${o.ded?$$(o.ded):'None'}</b></div><div class="kv"><span class="muted">Price</span><b>${$$(o.price)}/month</b></div></div>
+      <div class="notice small">Demo only. No payment is taken and no real policy is created. RONI may receive compensation from the carrier. <button class="link" data-a="money">See how</button></div>
+      <button class="btn block" style="margin-top:14px" data-a="confirmbuy" data-c="${s.c}" data-id="${o.id}">Confirm purchase</button><button class="btn ghost block" style="margin-top:10px;border:0" data-a="close">Cancel</button>`;
+  }
+  else if(s.t === 'consent'){
+    const o = findOpt(s.c, s.id);
+    body = `<h2>Licensed assistance is required to complete this transaction.</h2>
+      <p style="margin:12px 0 4px;font-size:18px;font-weight:600">Would you like a licensed insurance professional to contact you?</p>
+      <p class="muted small">Only if you say yes will we share your name and phone number, and only with one licensed professional for this ${esc(o.carrier)} request. Nothing has been shared yet.</p>
+      <div class="stack-s" style="margin-top:16px"><button class="btn block" data-a="consentyes" data-c="${s.c}" data-id="${o.id}">Yes, contact me</button><button class="btn ghost block" data-a="close">Not now</button></div>`;
+  }
+  else if(s.t === 'member'){
+    body = `<h2>Add a household member</h2><div class="stack-s" style="margin-top:12px"><label class="field"><span>Name</span><input id="mem-name" placeholder="Jordan Rivera"></label>
+      <div><div class="small bold" style="margin-bottom:6px">Relationship</div><div style="display:flex;flex-wrap:wrap;gap:8px">${['Partner','Child','Dependent'].map(r=>`<button class="chip ${s.rel===r?'on':''}" data-a="memrel" data-r="${r}">${r}</button>`).join('')}</div></div>
+      <p class="muted small">You can organize their insurance here. Roni never changes another adult\u2019s policy without their authorization.</p>
+      <button class="btn block" data-a="savemember">Add member</button></div>`;
+  }
+  else if(s.t === 'catprod'){ body = catSheet(s); }
+  else if(s.t === 'catimport'){
+    body = `<h2>Import ${CATS[s.cat].label} products</h2><p class="muted small" style="margin:4px 0 10px">Paste a JSON list. Each product needs a carrier and a price. Optional: plan, cov, covText, ded, benefits, excl, modes (roni, carrier, licensed), sponsored, kind, status, source.</p>
+      <textarea class="inp" id="imp-text" rows="8" style="font-family:monospace;font-size:13px" placeholder='[{"carrier":"Example Mutual","price":150,"covText":"100/300 liability","ded":500,"benefits":["Roadside"],"excl":["Racing"],"modes":["carrier"]}]'>${esc(s.text || '')}</textarea>
+      <div style="display:flex;gap:8px;margin:12px 0">${[['add','Add or update'],['replace','Replace all']].map(m=>`<button class="chip ${(s.replace?'replace':'add')===m[0]?'on':''}" data-a="impmode" data-v="${m[0]}">${m[1]}</button>`).join('')}</div>
+      <button class="btn block" data-a="doimport">Import</button><button class="btn ghost block" style="margin-top:10px;border:0" data-a="close">Cancel</button>`;
+  }
+  else if(s.t === 'upload'){
+    const steps = ['Reading your document','Finding carrier, dates and premium','Extracting coverage and exclusions','Writing a plain-English summary'];
+    if(s.step === 0){
+      body = `<h2>Upload a policy</h2><p class="muted" style="margin:4px 0 14px">Add any policy, even one you bought somewhere else.</p><div class="stack-s">
+        <label class="filebtn"><input type="file" data-file accept=".pdf,application/pdf"><span class="mini">${I('doc')}</span>Upload PDF</label>
+        <label class="filebtn"><input type="file" data-file accept="image/*"><span class="mini">${I('image')}</span>Upload photo</label>
+        <label class="filebtn"><input type="file" data-file accept="image/*" capture="environment"><span class="mini">${I('camera')}</span>Take photo</label>
+        <button class="btn ghost block" data-a="sample">Try with a sample policy</button></div>
+        ${s.error?'<div class="notice warn small" style="margin-top:12px">'+esc(s.error)+'</div>':''}<p class="muted xs" style="margin-top:12px">Photos are read by Claude to fill in your policy. PDFs are not supported yet. Sample policies are fictional.</p>`;
+    } else if(s.step === 1){
+      body = `<h2>Roni is reading your policy</h2><div style="margin-top:12px">${steps.map((t,i)=>`<div class="step ${s.prog>i?'done':''}"><span class="ck">${s.prog>i?I('check'):''}</span>${t}</div>`).join('')}</div>`;
+    } else {
+      const p = s.pol, liab = attrOf(p,'Liability'), period = fact(p,'Effective') + ' to ' + fact(p,'Renews').replace(/ \(.*\)/,'');
+      const rows = [['Carrier',p.carrier],['Policy number',fact(p,'Policy number')||fact(p,'Member ID')],['Policy holder',fact(p,'Policyholder')],['Premium',$$(p.premium)+' per month'],['Coverage period',period],['Renewal date',fdate(p.renewal)],['Deductible',p.ded?$$(p.ded):'None'],['Liability limits',liab==='\u2014'?'Not applicable':liab]];
+      body = `<span class="tag good">${I('check')}Policy detected</span><h2 style="margin-top:10px">${p.type} insurance</h2>
+        <div class="panel pad" style="margin:12px 0;padding-top:6px;padding-bottom:6px">${rows.map(r=>`<div class="kv"><span class="muted">${r[0]}</span><b>${esc(r[1])}</b></div>`).join('')}</div>
+        <h3 style="margin-bottom:6px">Important benefits</h3><ul class="clean small">${p.benefits.map(b=>`<li>${esc(b)}</li>`).join('')}</ul>
+        <h3 style="margin:14px 0 6px">Important exclusions</h3><ul class="clean x small">${p.excl.map(e=>`<li>${esc(e[0])}</li>`).join('')}</ul>
+        ${p.aiExtracted?'<div class="notice warn small" style="margin:14px 0">Roni read this from your photo. AI can misread details, so please check them against your document.'+(p.warnings&&p.warnings.length?'<br>'+esc(p.warnings.join(' ')):'')+'</div>':''}<div class="notice" style="margin:14px 0"><b>Roni analyzed your policy.</b> Monitoring will be turned on so you hear about price changes and better options. You can switch it off any time.</div>
+        <div style="display:flex;gap:10px"><button class="btn wide" data-a="addpolicy" data-go="summary">View summary</button><button class="btn ghost wide" data-a="addpolicy" data-go="ask">Ask Roni about this policy</button></div>`;
+    }
+    if(s.step !== 1) body += `<button class="btn ghost block" style="margin-top:10px;border:0" data-a="close">Cancel</button>`;
+  }
+  return `<div class="scrim" data-a="scrim"><div class="sheet" role="dialog" aria-modal="true"><div class="grab"></div>${body}</div></div>`;
+}
+function renderSheet(){ document.getElementById('sheet-root').innerHTML = sheetHTML(); }
+
+/* ---------- render ---------- */
+const SCREENS = {welcome:welcomeScreen, signup:signupScreen, signin:signinScreen, explain:explainScreen, home:homeScreen, market:marketScreen, flow:flowScreen, results:resultsScreen, wallet:walletScreen, policy:policyScreen, ask:askScreen, profile:profileScreen, privacy:privacyScreen, rewards:rewardsScreen, needs:needsScreen, editprofile:editProfileScreen, catalog:catalogScreen};
+function render(reset){
+  const m = document.getElementById('screen'), st = m.scrollTop;
+  m.className = S.screen === 'ask' ? 'ask' : '';
+  m.innerHTML = `<div class="wrap${reset?' fade':''}">${SCREENS[S.screen]()}</div>`;
+  m.scrollTop = reset ? 0 : st;
+  if(S.screen === 'ask') m.scrollTop = m.scrollHeight;
+  renderNav();
+}
+function go(s){ S.screen = s; S.sheet = null; renderSheet(); render(true); }
+function startFlow(c){
+  const n = need(c);
+  S.cat = c; S.flow = {cat:c, ans:{}}; S.prios = n.prios && n.prios.length ? n.prios.slice() : ['price'];
+  ((FLOW[c] || {}).ask || []).forEach(q => {
+    let v = q.opts[0];
+    if(q.id === 'lvl') v = n.level === 'Minimum' ? q.opts[0] : n.level === 'High' ? q.opts[q.opts.length-1] : q.opts[Math.min(1, q.opts.length-1)];
+    S.flow.ans[q.id] = v;
+  });
+  S.sel[c] = []; go('flow');
+}
+
+/* ---------- Ask Roni engine (scripted for the prototype) ---------- */
+function findCat(q){
+  if(/\b(auto|car|cars|vehicle|driving)\b/.test(q)) return 'auto';
+  if(/\b(renter|renters|apartment)\b/.test(q)) return 'renters';
+  if(/\b(home|house|homeowner|homeowners)\b/.test(q)) return 'home';
+  if(/\blife\b/.test(q)) return 'life';
+  if(/\b(health|medical)\b/.test(q)) return 'health';
+  if(/\b(pet|dog|cat|puppy|kitten)\b/.test(q)) return 'pet';
+  return null;
+}
+function answerScripted(raw){
+  const q = raw.toLowerCase().replace(/^\s*(hey\s+)?roni[,:]?\s*/, '').trim();
+  const cat = findCat(q), auto = getP('auto');
+  const missing = c => ({parts:[{kind:'general', text:`I don\u2019t see a ${CATS[c].label.toLowerCase()} policy in your Wallet yet. Upload it and I\u2019ll read it, explain it and answer questions with the exact page as the source.`}], actions:[{t:'upload',label:'Upload a policy'},{t:'flow',c,label:`Start ${CATS[c].label.toLowerCase()} quote`}]});
+
+  if(/\b(stole|stolen|steal|steals|theft|thief)\b/.test(q)){
+    if(!auto) return missing('auto');
+    return {parts:[
+      {kind:'policy', text:'Your uploaded policy includes Comprehensive Coverage with a $500 deductible.', sources:[{pid:'auto',k:'i',i:2}]},
+      {kind:'general', text:'If the theft meets the policy conditions, comprehensive coverage generally applies.'},
+      {kind:'policy', text:'One catch: personal belongings inside the car, like a laptop, are not covered by your auto policy.', sources:[{pid:'auto',k:'x',i:3}]}],
+      actions:[{t:'section',label:'View policy section'},{t:'ask',q:'Explain my deductible',label:'Explain deductible'},{t:'compare',c:'auto',label:'Compare coverage'}]};
+  }
+  if(/deductible/.test(q)){
+    const parts = [];
+    if(cat === 'health' && getP('health')) parts.push({kind:'policy', text:'Your health plan has a $3,200 individual deductible and a $6,400 family deductible. Your yearly out-of-pocket limit is $8,500.', sources:[{pid:'health',k:'i',i:0},{pid:'health',k:'i',i:1}]});
+    else if(auto){
+      const src = [{pid:'auto',k:'i',i:1},{pid:'auto',k:'i',i:2}];
+      if(getP('renters')) src.push({pid:'renters',k:'i',i:4});
+      parts.push({kind:'policy', text:'Your auto policy has a $500 deductible for both Collision and Comprehensive.' + (getP('renters') ? ' Your renters policy also has a $500 deductible.' : ''), sources:src});
+    }
+    parts.push({kind:'general', text:'A deductible is what you pay first when you make a claim. Example: if a covered repair costs $2,300 and your deductible is $500, you pay $500 and your policy pays $1,800.'});
+    return {parts, actions:[{t:'compare',c:'auto',label:'Compare coverage'}]};
+  }
+  if(/\b(renew|renews|renewal|renewing|expire|expires)\b/.test(q)){
+    if(!S.policies.length) return missing('auto');
+    const c = cat && getP(cat) ? cat : null;
+    const list = c ? [getP(c)] : [...S.policies].sort((a,b)=>days(a.renewal)-days(b.renewal));
+    const parts = [{kind:'wallet', text:'Here is what is coming up:', list:list.map(p=>`${p.type}${p.owner!=='me'?' ('+p.owner+')':''} renews ${fdate(p.renewal)}, in ${days(p.renewal)} days`)}];
+    if(auto && list.includes(auto) && auto.renewalPremium) parts.push({kind:'policy', text:`Your carrier has quoted ${$$(auto.renewalPremium)}/month for the renewal, up ${$$(auto.renewalPremium-auto.premium)} from today.`, sources:[{pid:'auto',k:'f',i:3}]});
+    return {parts, actions: auto && auto.renewalPremium && list.includes(auto) ? [{t:'compare',c:'auto',label:'Compare options'}] : []};
+  }
+  if(/expensive|why.*(cost|price|premium)|went up|increase|so high/.test(q)){
+    if(!auto) return missing('auto');
+    return {parts:[
+      {kind:'policy', text:`You pay ${$$(auto.premium)}/month for ${auto.carrier} auto, and your renewal quote is ${$$(auto.renewalPremium)}/month, up ${$$(auto.renewalPremium-auto.premium)}.`, sources:[{pid:'auto',k:'f',i:4}]},
+      {kind:'general', text:'Auto prices often rise because of higher repair and replacement costs, more claims in your area, changes to your driving record or coverage, or a carrier-wide rate increase. Comparing is the quickest way to see whether the increase is specific to your carrier.'}],
+      actions:[{t:'compare',c:'auto',label:'Compare with my policy'}]};
+  }
+  if(/compare|similar|cheaper|less money|for less|save|savings|lower price|better deal|switch/.test(q)){
+    const c = cat || 'auto', cur = getP(c);
+    if(!cur) return missing(c);
+    const sim = similarOptions(c);
+    const parts = [{kind:'wallet', text:`Your ${cur.carrier} ${cur.type.toLowerCase()} costs ${$$(cur.premium)}/month.`}];
+    if(sim.length) parts.push({kind:'general', text:`I found ${numWord(sim.length)} comparable option${sim.length===1?'':'s'} that cost${sim.length===1?'s':''} less, starting around ${$$(sim[0].price)}/month. These are estimates until you get a full quote, and I look at coverage as well as price.`});
+    else parts.push({kind:'general', text:'I did not find a comparable option that costs less right now. I will keep watching.'});
+    return {parts, actions:[{t:'compare',c,label:'Compare with my current policy'}]};
+  }
+  if(/\b(i|we)\s+(need|want|would like)\b|\b(i'm|i am|im)\s+looking\b|\b(get|find) me\b|\bquote\b|\bshop(ping)? for\b/.test(q) && cat){
+    const l = CATS[cat].label.toLowerCase();
+    if(CATS[cat].soon) return {parts:[{kind:'general', text:`${CATS[cat].label} insurance is coming soon to RONI. I can help with auto, home, renters, life, health and pet today.`}]};
+    return {parts:[{kind:'general', text:'I can help with that.'}], actions:[{t:'flow',c:cat,label:`Start ${l} quote`}]};
+  }
+  if(/rental|roadside|tow|towing/.test(q)){
+    if(!auto) return missing('auto');
+    return {parts:[{kind:'policy', text:'Your auto policy includes rental reimbursement of $40 a day for up to 30 days after a covered claim, and roadside assistance for towing, battery, flat tires and lockouts.', sources:[{pid:'auto',k:'i',i:4},{pid:'auto',k:'i',i:5}]}]};
+  }
+  if(/cover|covered|coverage|protect|include|exclusion|exclude/.test(q)){
+    const c = cat || 'auto', p = getP(c);
+    if(!p) return missing(c);
+    return {parts:[{kind:'policy', text:`Your ${p.carrier} ${p.type.toLowerCase()} policy includes:`, list:p.items.map(it=>`${it.n}: ${it.lim}`), sources:p.items.slice(0,3).map((_,i)=>({pid:p.id,k:'i',i}))},
+      {kind:'general', text:'Tap a source to see exactly where in your policy this comes from.'}], actions:[{t:'section',c,label:'View policy section'}]};
+  }
+  if(cat === 'life' && !getP('life',false)){
+    return {parts:[{kind:'wallet', text:'You do not have a life policy in your Wallet yet.'},{kind:'general', text:'A common starting point is several times your yearly income, but the right amount depends on debts, dependents and goals. Term life is usually the least expensive way to cover a set number of years.'}], actions:[{t:'flow',c:'life',label:'Start life quote'}]};
+  }
+  if(cat && getP(cat) && /policy|plan/.test(q)){
+    const p = getP(cat);
+    return {parts:[{kind:'policy', text:p.summary, sources:[{pid:p.id,k:'f',i:4}]}]};
+  }
+  if(/^(hi|hello|hey|help|thanks|thank you)\b/.test(q) || q.length < 3){
+    return {parts:[{kind:'general', text:'I can explain your policies, tell you when things renew, compare options or start a quote. Try one of the suggestions below.'}]};
+  }
+  return {parts:[{kind:'general', text:'I am a prototype, so my answers are limited. I can help with coverage, deductibles, renewals, comparing options and starting a quote. Try \u201cIf someone steals my car tonight, am I covered?\u201d'}]};
+}
+function answerOption(cat, id){
+  const o = findOpt(cat,id), cur = getP(cat), parts = [];
+  parts.push({kind:'general', text:`${o.plan?o.plan+', ':''}${o.carrier}: ${$$(o.price)}/month with ${o.covText} and a ${o.ded?$$(o.ded):'$0'} deductible. Benefits: ${o.benefits.join(', ') || 'none listed'}. Not included: ${o.excl.slice(0,2).join('; ').toLowerCase()}.`});
+  if(cur){
+    const d = cur.premium - o.price, cd = o.cov - cur.score;
+    parts.push({kind:'wallet', text:`Compared with your ${cur.carrier} ${cur.type.toLowerCase()} at ${$$(cur.premium)}/month: ${d>0?$$(d)+' less per month':d<0?$$(-d)+' more per month':'the same price'}, and ${cd>4?'more':cd<-4?'less':'similar'} coverage.`});
+  } else parts.push({kind:'general', text:'Whether this is right for you depends on what matters most to you. I can compare it with the other options if you would like.'});
+  return {parts, actions:[{t:'compare',c:cat,label:'Compare options'}]};
+}
+function openCompare(c, ids){
+  S.cat = c; S.sel[c] = ids || compareSelection(c);
+  S.sheet = {t:'compare', cat:c}; renderSheet();
+}
+function pushRoni(r){ S.chat.push({role:'roni', parts:r.parts, actions:r.actions}); }
+async function sendChat(q, custom){
+  q = String(q || '').trim(); if(!q || S.typing) return;
+  S.chat.push({role:'user', text:q}); S.typing = true; S.ctl = null;
+  if(S.screen !== 'ask'){ S.screen = 'ask'; S.sheet = null; renderSheet(); }
+  render(true);
+  if(custom){ setTimeout(() => { pushRoni(custom()); S.typing = false; render(); persistSoon(); }, 600); return; }
+  let r = null;
+  if(S.settings.ai && DB.sample){
+    try{ r = await askAI(q); S.aiMode = 'live'; }
+    catch(e){
+      if(e && e.code === 'cancelled'){ S.typing = false; S.ctl = null; render(); return; }
+      S.aiMode = 'offline';
+      const why = e && (e.code === 'rate_limited') ? 'Roni\u2019s AI is busy right now, so this is a quick offline answer.' : e && (e.code === 'not_granted' || e.code === 'sampling_disabled') ? 'AI is turned off for this view, so this is an offline answer.' : 'Roni\u2019s AI could not answer just now, so this is an offline answer.';
+      r = answerScripted(q); r.parts.push({kind:'general', text:why});
+    }
+  }
+  if(!r) r = answerScripted(q);
+  S.ctl = null; pushRoni(r); S.typing = false; render(); persistSoon();
+}
+
+/* ---------- upload flow ---------- */
+function startAnalysis(){
+  const pol = SAMPLES[S.sampleIdx];
+  if(!pol){ toast('All sample policies are already in your Wallet.'); S.sheet = null; renderSheet(); return; }
+  S.sheet = {t:'upload', step:1, prog:0, pol:clone(pol)}; renderSheet();
+  const tick = () => {
+    if(!S.sheet || S.sheet.t !== 'upload' || S.sheet.step !== 1) return;
+    S.sheet.prog++;
+    if(S.sheet.prog >= 4){ S.sheet.step = 2; renderSheet(); } else { renderSheet(); setTimeout(tick, 750); }
+  };
+  setTimeout(tick, 750);
+}
+
+/* ---- real policy reading from a photo (Claude vision through `sample`) ---- */
+const EXTRACT_PROMPT = `You are reading a photo of an insurance policy document for the RONI app. Extract ONLY what is visible. Use null when something is not visible; never guess. Quotes must be copied verbatim from the image and short (max 200 characters).
+Reply with ONLY JSON: {"type":"Auto|Renters|Home|Life|Health|Pet|Other","carrier":"","policyNumber":"","policyholder":"","premiumMonthly":number|null,"effective":"YYYY-MM-DD"|null,"renewal":"YYYY-MM-DD"|null,"deductible":number|null,"label":"short description like the insured vehicle or address","covText":"one-line coverage summary","benefits":["..."],"items":[{"n":"coverage name","lim":"limit","ded":"deductible or None","page":"page or section if visible","plain":"one plain-English sentence","quote":"verbatim excerpt or null"}],"exclusions":[{"text":"","page":"","quote":null}],"summary":"2-3 plain-English sentences about what this policy means"}`;
+async function extractPolicy(file){
+  const raw = await DB.sample.json(EXTRACT_PROMPT, {images:file, cache:false});
+  const key = String(raw && raw.type || '').toLowerCase();
+  if(!CAT_KEYS.includes(key)) throw {code:'unknown_type', message:'Roni could not tell what type of policy this is. Try a clearer photo of the first page.'};
+  const num = v => (typeof v === 'number' && isFinite(v)) ? v : null, date = v => (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) ? v : null;
+  const warnings = [];
+  const eff = date(raw.effective); let ren = date(raw.renewal);
+  if(!ren){ ren = eff ? (Number(eff.slice(0,4)) + 1) + eff.slice(4) : '2027-10-11'; warnings.push('The renewal date was not visible, so Roni estimated it. Please check it.'); }
+  const prem = num(raw.premiumMonthly); if(prem === null) warnings.push('The monthly price was not visible.');
+  const holder = String(raw.policyholder || fullName());
+  const facts = [['Policyholder',holder,'Photo'],['Policy number',String(raw.policyNumber || 'Not visible'),'Photo'],['Effective',eff ? fdate(eff) : 'Not visible','Photo'],['Renews',fdate(ren),'Photo'],['Premium',prem === null ? 'Not visible' : $$(prem) + ' per month','Photo']];
+  const items = (Array.isArray(raw.items) ? raw.items : []).slice(0,12).filter(it=>it && it.n).map(it=>({n:String(it.n).slice(0,80), lim:String(it.lim || 'See policy').slice(0,160), ded:String(it.ded || ''), pg:String(it.page || 'Photo').slice(0,30), plain:String(it.plain || '').slice(0,240), ex:it.quote ? String(it.quote).slice(0,300) : undefined}));
+  if(!items.length) throw {code:'no_items', message:'Roni could not find coverage details in that photo. Try a page that lists the coverages.'};
+  const excl = (Array.isArray(raw.exclusions) ? raw.exclusions : []).slice(0,10).filter(e=>e && e.text).map(e=>[String(e.text).slice(0,160), String(e.page || 'Photo').slice(0,30), e.quote ? String(e.quote).slice(0,300) : undefined]);
+  const ded = num(raw.deductible);
+  return {cat:key, type:CATS[key].label, carrier:String(raw.carrier || 'Unknown carrier').slice(0,80), premium:prem || 0, renewal:ren, monitoring:true, score:60, ded:ded || 0, owner:'me',
+    label:String(raw.label || CATS[key].label).slice(0,80), covText:String(raw.covText || '').slice(0,160), benefits:(Array.isArray(raw.benefits) ? raw.benefits : []).slice(0,6).map(String),
+    attrs:ded !== null ? [['Deductible', $$(ded)]] : [], facts, items, excl, summary:String(raw.summary || 'Roni read this policy from your photo.').slice(0,600), aiExtracted:true, warnings};
+}
+async function handleFile(file){
+  if(!file) return;
+  const bad = msg => { S.sheet = {t:'upload', step:0, error:msg}; renderSheet(); };
+  if(!DB.sample || !S.settings.ai) return bad('AI reading is turned off. You can turn it on in the Privacy center, or try a sample policy.');
+  if(file.type === 'application/pdf' || /\.pdf$/i.test(file.name || '')) return bad('Reading PDFs comes with the full version. For now, take or upload a photo of the policy pages, or try a sample policy.');
+  const lim = await DB.sample.limits().catch(() => null);
+  if(!lim || !lim.images) return bad('Photo reading is not available in this view. Try a sample policy instead.');
+  S.sheet = {t:'upload', step:1, prog:0, pol:null}; renderSheet();
+  const ticker = setInterval(() => { if(S.sheet && S.sheet.step === 1 && S.sheet.prog < 3){ S.sheet.prog++; renderSheet(); } }, 3500);
+  try{
+    const pol = await extractPolicy(file);
+    clearInterval(ticker); S.sheet = {t:'upload', step:2, pol}; renderSheet();
+  }catch(e){
+    clearInterval(ticker);
+    bad(e && e.code === 'unknown_type' || e && e.code === 'no_items' ? e.message : e && e.code === 'image_rejected' ? 'That file could not be used. Try a JPEG or PNG photo.' : e && e.code === 'rate_limited' ? 'Roni\u2019s AI is busy. Try again in a minute.' : 'Roni could not read that photo. Try a clearer, well-lit picture of the policy.');
+  }
+}
+
+/* ---------- actions ---------- */
+const H = {
+  go:d => go(d.s),
+  signup:() => {
+    const v = id => document.getElementById(id).value.trim();
+    if(v('su-first')) S.user.first = v('su-first'); if(v('su-last')) S.user.last = v('su-last'); if(v('su-email')) S.user.email = v('su-email');
+    loadSample(); S.chat = []; go('explain');
+  },
+  signin:() => { loadSample(); S.chat = []; go('home'); },
+  enter:() => go('home'),
+  toggle:d => { S.settings[d.k] = !S.settings[d.k]; render(); },
+  soon:() => toast('Coming soon. Auto, home, renters, life, health and pet work today.'),
+  startflow:d => startFlow(d.c),
+  explore:d => startFlow(d.c),
+  editprofile:() => toast('Profile editing is not part of this prototype.'),
+  ans:d => { S.flow.ans[d.q] = d.v; render(); },
+  prio:d => { const i = S.prios.indexOf(d.k); if(i > -1){ if(S.prios.length > 1) S.prios.splice(i,1); else toast('Keep at least one priority selected.'); } else S.prios.push(d.k); render(); },
+  results:() => { S.cat = S.flow.cat; S.sort = 'match'; S.sel[S.cat] = []; go('results'); },
+  sort:d => { S.sort = d.k; render(); },
+  sel:d => { const a = S.sel[S.cat] = S.sel[S.cat] || []; const i = a.indexOf(d.id); if(i > -1) a.splice(i,1); else if(a.length >= 3) toast('Compare up to three at a time.'); else a.push(d.id); render(); },
+  compare:() => openCompare(S.cat, S.sel[S.cat]),
+  details:d => { S.sheet = {t:'details', c:d.c, id:d.id}; renderSheet(); },
+  askopt:d => { S.sheet = null; renderSheet(); const o = findOpt(d.c,d.id); sendChat(`Tell me about ${o.plan?o.plan+' ('+o.carrier+')':o.carrier}`, () => answerOption(d.c, d.id)); },
+  buy:d => { S.sheet = {t:'buy', c:d.c, id:d.id}; renderSheet(); },
+  buyroni:d => { S.sheet = {t:'confirm', c:d.c, id:d.id}; renderSheet(); },
+  carrier:d => { S.sheet = null; renderSheet(); toast('In the real app this opens ' + d.n + '.'); },
+  licensed:d => { S.sheet = {t:'consent', c:d.c, id:d.id}; renderSheet(); },
+  consentyes:d => { const o = findOpt(d.c,d.id); S.requests.push(o.carrier); S.sheet = null; renderSheet(); toast('Request sent. One licensed professional will contact you.'); },
+  confirmbuy:d => {
+    const o = findOpt(d.c,d.id), c = CATS[d.c], n = ++uid;
+    const pol = {id:'p'+n, cat:d.c, type:c.label, carrier:o.carrier, premium:o.price, renewal:'2027-10-11', monitoring:true, score:o.cov, ded:o.ded, label:o.covText, covText:o.covText, benefits:o.benefits, purchased:true, owner:'me', attrs:o.attrs||[['Deductible',o.ded?$$(o.ded):'None']],
+      facts:[['Policyholder','{holder}','Summary'],['Policy number','RN-'+(40000+n*137),'Summary'],['Effective','Oct 11, 2026','Summary'],['Renews','Oct 11, 2027','Summary'],['Premium',$$(o.price)+' per month','Summary']],
+      items:[{n:'Main coverage', lim:o.covText, ded:o.ded?$$(o.ded):'None', pg:'Summary', plain:'The core protection you bought.'}].concat(o.benefits.map(b=>({n:b, lim:'Included', ded:'', pg:'Summary', plain:'An included benefit.'}))),
+      excl:o.excl.map(e=>[e,'Summary']), act:[['Oct 11, 2026','Purchased through RONI']],
+      summary:`You bought ${o.carrier} ${c.label.toLowerCase()} insurance through RONI. It is in your Wallet with monitoring turned on, and Roni will tell you before it renews.`};
+    S.policies.push(pol); S.sheet = null; renderSheet(); addPoints('Bought ' + c.label + ' policy', 500); go('wallet');
+  },
+  money:() => { S.sheet = {t:'money'}; renderSheet(); },
+  close:() => { S.sheet = null; renderSheet(); },
+  scrim:(d,el,e) => { if(e.target === el && !(S.sheet && S.sheet.step === 1)){ S.sheet = null; renderSheet(); } },
+  policy:d => { S.pid = d.id; S.tab = 'overview'; go('policy'); },
+  tab:d => { S.tab = d.k; render(); },
+  mon:d => { const p = S.policies.find(x=>x.id===d.id); p.monitoring = !p.monitoring; p.actExtra = (p.actExtra||[]).concat([['Oct 11, 2026','Monitoring turned ' + (p.monitoring?'on':'off')]]); toast(p.monitoring ? 'Monitoring is on.' : 'Monitoring is off.'); render(); },
+  src:d => { S.sheet = {t:'src', pid:d.pid, k:d.k, i:+d.i}; renderSheet(); },
+  upload:() => { S.sheet = {t:'upload', step:0}; renderSheet(); },
+  attach:() => { S.sheet = {t:'upload', step:0}; renderSheet(); },
+  sample:() => startAnalysis(),
+  addpolicy:d => {
+    const pol = S.sheet.pol; pol.id = 'u' + (++uid); pol.act = [['Oct 11, 2026','Policy uploaded and analyzed by Roni']]; S.policies.push(pol); if(!pol.aiExtracted) S.sampleIdx++;
+    S.sheet = null; renderSheet(); addPoints('Uploaded ' + pol.type + ' policy', 150);
+    if(d.go === 'ask'){ S.pid = pol.id; sendChat(`What does my ${pol.type.toLowerCase()} policy cover?`, () => ({parts:[{kind:'policy', text:`Your ${pol.carrier} ${pol.type.toLowerCase()} policy includes:`, list:pol.items.map(it=>`${it.n}: ${it.lim}`), sources:pol.items.slice(0,3).map((_,i)=>({pid:pol.id,k:'i',i}))},{kind:'general', text:'Tap a source to see exactly where in the policy this comes from.'}]})); }
+    else { S.pid = pol.id; S.tab = 'overview'; go('policy'); }
+  },
+  snooze:() => { S.snooze = true; render(); toast('Okay. Roni will remind you closer to renewal.'); },
+  compareauto:() => openCompare('auto'),
+  askpolicy:d => { const p = S.policies.find(x=>x.id===d.id); sendChat(`What does my ${p.type.toLowerCase()} policy cover?`); },
+  prompt:d => sendChat(d.q),
+  send:() => { const i = document.getElementById('chatIn'); const v = i.value; i.value = ''; sendChat(v); },
+  sendhome:() => { const i = document.getElementById('homeAsk'); sendChat(i.value || 'If someone steals my car tonight, am I covered?'); },
+  chatact:d => {
+    if(d.t === 'flow') startFlow(d.c);
+    else if(d.t === 'compare') openCompare(d.c);
+    else if(d.t === 'upload') H.upload();
+    else if(d.t === 'ask') sendChat(d.q);
+    else if(d.t === 'section'){ const p = getP(d.c || 'auto'); if(p){ S.pid = p.id; S.tab = 'coverage'; go('policy'); } }
+  },
+  voice:() => { S.listening = true; render(); toast('Listening\u2026'); setTimeout(() => { S.listening = false; sendChat('If someone steals my car tonight, am I covered?'); }, 1600); },
+  acc:d => { S.acc[d.k] = !S.acc[d.k]; render(); },
+  addmember:() => { S.sheet = {t:'member', rel:'Child'}; renderSheet(); },
+  memrel:d => { const n = document.getElementById('mem-name'); const v = n ? n.value : ''; S.sheet.rel = d.r; renderSheet(); const n2 = document.getElementById('mem-name'); if(n2) n2.value = v; },
+  savemember:() => { const n = document.getElementById('mem-name').value.trim() || 'New member'; const rel = S.sheet.rel; S.members.push({name:n, rel, adult: rel === 'Partner'}); S.acc.house = true; S.sheet = null; renderSheet(); render(); toast(n + ' added to your household.'); },
+  invite:d => toast('Invitation sent to ' + d.n + ' (demo). They decide what to share.'),
+  doc:() => toast('Document preview is not part of this prototype.'),
+  reset:() => { S = freshState(); render(true); renderSheet(); }
+};
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-a]'); if(!el) return;
+  const fn = H[el.dataset.a]; if(fn) fn(el.dataset, el, e);
+});
+document.addEventListener('keydown', e => {
+  if(e.key !== 'Enter') return;
+  if(e.target.id === 'chatIn') H.send();
+  else if(e.target.id === 'homeAsk') H.sendhome();
+});
+/* ---------- v0.4 handlers ---------- */
+Object.assign(H, {
+  signup:() => {
+    const v = id => { const e = document.getElementById(id); return e && e.value ? e.value.trim() : ''; };
+    S.user.first = v('su-first') || 'Alex'; S.user.last = v('su-last') || 'Rivera'; S.user.email = v('su-email') || 'alex@example.com';
+    newAccount(); go('explain');
+  },
+  signin:() => { if(!S.hasAccount){ S.user = {first:'Alex', last:'Rivera', email:'alex@example.com'}; newAccount(); } go('home'); },
+  enter:() => go('home'),
+  reset:() => { resetAll(); },
+  editprofile:() => go('editprofile'),
+  results:() => {
+    const c = S.flow.cat, f = FLOW[c] || {known:[]};
+    f.known.forEach((k,i) => { if(!tok(k.token) && k.save){ const e = document.getElementById('kn-' + i); if(e && e.value) saveTok(k.save, e.value); } });
+    S.cat = c; S.sort = 'match'; S.sel[c] = []; go('results');
+  },
+  needint:d => { need(d.c).interest = d.v; render(); },
+  needprio:d => { const n = need(d.c), i = n.prios.indexOf(d.k); if(i > -1) n.prios.splice(i,1); else n.prios.push(d.k); render(); },
+  needlvl:d => { need(d.c).level = d.v; render(); },
+  needded:d => { need(d.c).maxDed = d.v === '' ? null : Number(d.v); render(); },
+  additem:d => { collectProfile(); (S.profile[d.k] = S.profile[d.k] || []).push(''); render(); },
+  rmitem:d => { collectProfile(); S.profile[d.k].splice(+d.i, 1); render(); },
+  rmmember:d => { collectProfile(); S.members.splice(+d.i, 1); render(); },
+  addmember:() => { if(S.screen === 'editprofile') collectProfile(); S.sheet = {t:'member', rel:'Child'}; renderSheet(); },
+  saveprofile:() => {
+    collectProfile(); if(!S.user.first) S.user.first = 'Alex';
+    ['vehicles','properties','pets'].forEach(k => { S.profile[k] = (S.profile[k] || []).filter(Boolean); });
+    toast('Profile saved.'); go('profile');
+  },
+  stopai:() => { if(S.ctl) S.ctl.abort(); },
+  chatact:d => {
+    if(d.t === 'flow') startFlow(d.c);
+    else if(d.t === 'compare') openCompare(d.c);
+    else if(d.t === 'upload') H.upload();
+    else if(d.t === 'ask') sendChat(d.q);
+    else if(d.t === 'needs') go('needs');
+    else if(d.t === 'profile') go('editprofile');
+    else if(d.t === 'section'){ const p = getP(d.c || 'auto'); if(p){ S.pid = p.id; S.tab = 'coverage'; go('policy'); } }
+  },
+  catcat:d => { S.catAdmin = d.c; render(); },
+  catadd:() => { S.sheet = {t:'catprod', cat:S.catAdmin, id:null, o:{carrier:'', plan:'', price:100, cov:60, covText:'', ded:500, benefits:[], excl:[], modes:['carrier'], kind:'quote', status:'illustrative', source:'manual', sponsored:false}}; renderSheet(); },
+  catedit:d => { const o = ((CATALOG[S.catAdmin] || {}).options || []).find(x => x.id === d.id); if(!o) return; S.sheet = {t:'catprod', cat:S.catAdmin, id:o.id, o:clone(o)}; renderSheet(); },
+  cpset:d => { const s = S.sheet; collectCat(s); if(d.k === 'sponsored') s.o.sponsored = !!d.v; else s.o[d.k] = d.v; renderSheet(); },
+  cpmode:d => { const s = S.sheet; collectCat(s); const m = s.o.modes || (s.o.modes = []), i = m.indexOf(d.v); if(i > -1) m.splice(i,1); else m.push(d.v); renderSheet(); },
+  catsave: async () => {
+    const s = S.sheet; collectCat(s);
+    const n = normalizeOpt(Object.assign({}, s.o, {id:s.id || undefined}), s.cat);
+    if(!n){ toast('A carrier name and a price above zero are required.'); return; }
+    const doc = CATALOG[s.cat] || (CATALOG[s.cat] = {cat:s.cat, options:[]});
+    const i = doc.options.findIndex(x => x.id === n.id);
+    if(i > -1) doc.options[i] = n; else doc.options.push(n);
+    S.sheet = null; renderSheet();
+    try{ await saveCatalog(s.cat); toast('Product saved to the database.'); }catch(e){ toast('Could not save to the database.'); }
+    render();
+  },
+  catdelete: async () => {
+    const s = S.sheet;
+    if(!s.cd){ collectCat(s); s.cd = true; renderSheet(); toast('Tap delete again to confirm.'); return; }
+    const doc = CATALOG[s.cat]; doc.options = doc.options.filter(x => x.id !== s.id);
+    S.sheet = null; renderSheet();
+    try{ await saveCatalog(s.cat); toast('Product deleted.'); }catch(e){ toast('Could not save to the database.'); }
+    render();
+  },
+  catimport:() => { S.sheet = {t:'catimport', cat:S.catAdmin, text:'', replace:false}; renderSheet(); },
+  impmode:d => { const t = document.getElementById('imp-text'); if(t) S.sheet.text = t.value; S.sheet.replace = d.v === 'replace'; renderSheet(); },
+  doimport: async () => {
+    const s = S.sheet, t = document.getElementById('imp-text'); if(t) s.text = t.value;
+    let data; try{ data = JSON.parse(s.text); }catch(e){ toast('That is not valid JSON.'); return; }
+    const list = Array.isArray(data) ? data : (data && Array.isArray(data.options) ? data.options : null);
+    if(!list){ toast('Expected a list of products.'); return; }
+    const norm = list.map(x => normalizeOpt(x, s.cat)).filter(Boolean);
+    if(!norm.length){ toast('No valid products. Each needs a carrier and a price.'); return; }
+    const doc = CATALOG[s.cat] || (CATALOG[s.cat] = {cat:s.cat, options:[]});
+    if(s.replace) doc.options = norm; else norm.forEach(n => { const i = doc.options.findIndex(x => x.id === n.id); if(i > -1) doc.options[i] = n; else doc.options.push(n); });
+    S.sheet = null; renderSheet();
+    try{ await saveCatalog(s.cat); toast(norm.length + ' products imported.'); }catch(e){ toast('Could not save to the database.'); }
+    render();
+  },
+  catexport: async () => {
+    try{
+      const dl = typeof claude !== 'undefined' ? await claude.use('downloads') : null;
+      if(!dl){ toast('Downloads are not available in this view.'); return; }
+      await dl.save({filename:`roni-catalog-${S.catAdmin}.json`, data:JSON.stringify(CATALOG[S.catAdmin] || {options:[]}, null, 2)});
+    }catch(e){ toast('The file was not saved.'); }
+  }
+});
+Object.keys(H).forEach(k => { const f = H[k]; H[k] = function(){ const r = f.apply(this, arguments); persistSoon(); return r; }; });
+document.addEventListener('change', e => {
+  const t = e.target;
+  if(t.hasAttribute && t.hasAttribute('data-file') && t.files && t.files.length){ handleFile(t.files[0]); return; }
+  if(t.dataset && t.dataset.need){
+    const n = need(t.dataset.c);
+    if(t.dataset.need === 'budget') n.budget = t.value === '' ? null : Math.max(0, Number(t.value) || 0);
+    else if(t.dataset.need === 'notes') n.notes = t.value.slice(0,200);
+    persistSoon();
+  }
+});
+
+render(true);
+initBackend();
+</script>
+</body>
+</html>

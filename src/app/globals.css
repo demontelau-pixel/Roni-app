@@ -1,0 +1,112 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens — ported directly from the original HTML prototype
+ * (roni-prototype-v05.html) so the visual identity stays identical.
+ * Do not rename these without checking every component that consumes
+ * the matching Tailwind utility below.
+ */
+:root {
+  --outer: #e3e9eb;
+  --bg: #f2f5f4;
+  --surface: #ffffff;
+  --ink: #10223a;
+  --muted: #5a6b7c;
+  --line: #e0e7ea;
+  --off: #cbd5da;
+  --primary: #0e7c86;
+  --primary-ink: #ffffff;
+  --soft: #ddf1f2;
+  --sun: #ffc857;
+  --good: #137a45;
+  --goodbg: #e1f4e9;
+  --warn: #8a5a00;
+  --warnbg: #fff1cf;
+  --bad: #b4390e;
+  --deep: #10223a;
+  --deeptext: #eaf6f4;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --outer: #060d13;
+    --bg: #0b1620;
+    --surface: #132230;
+    --ink: #e8f0f4;
+    --muted: #9badbb;
+    --line: #243748;
+    --off: #3a4f62;
+    --primary: #4cc2cb;
+    --primary-ink: #06222a;
+    --soft: #123840;
+    --good: #5fd59a;
+    --goodbg: #12362a;
+    --warn: #f2c260;
+    --warnbg: #3a2e10;
+    --bad: #f0855a;
+    --deep: #0f3540;
+    --deeptext: #eaf6f4;
+  }
+}
+
+:root[data-theme="dark"] {
+  --outer: #060d13;
+  --bg: #0b1620;
+  --surface: #132230;
+  --ink: #e8f0f4;
+  --muted: #9badbb;
+  --line: #243748;
+  --off: #3a4f62;
+  --primary: #4cc2cb;
+  --primary-ink: #06222a;
+  --soft: #123840;
+  --good: #5fd59a;
+  --goodbg: #12362a;
+  --warn: #f2c260;
+  --warnbg: #3a2e10;
+  --bad: #f0855a;
+  --deep: #0f3540;
+  --deeptext: #eaf6f4;
+}
+
+/* Map the tokens above into Tailwind v4's CSS-native theme, so utilities
+   like `bg-bg`, `text-ink`, `border-line` etc. are generated automatically
+   and stay in sync with light/dark mode without extra JS. */
+@theme inline {
+  --color-outer: var(--outer);
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-off: var(--off);
+  --color-primary: var(--primary);
+  --color-primary-ink: var(--primary-ink);
+  --color-soft: var(--soft);
+  --color-sun: var(--sun);
+  --color-good: var(--good);
+  --color-goodbg: var(--goodbg);
+  --color-warn: var(--warn);
+  --color-warnbg: var(--warnbg);
+  --color-bad: var(--bad);
+  --color-deep: var(--deep);
+  --color-deeptext: var(--deeptext);
+  --font-sans: var(--font-figtree), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+html {
+  scroll-padding-top: env(safe-area-inset-top, 0px);
+  height: 100%;
+}
+
+body {
+  height: 100%;
+  background: var(--outer);
+  color: var(--ink);
+  font-family: var(--font-figtree), system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  box-sizing: border-box;
+}
