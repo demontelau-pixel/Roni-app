@@ -188,7 +188,7 @@ that error rather than guessed at.
 
 ## Roadmap
 
-- **M2** — Marketplace: category picker, quote flow, ranked results.
+- ~~**M2** — Marketplace: category picker, quote flow, ranked results.~~ ✅ done, see below.
 - **M3** — Wallet: policy list, upload flow, policy detail (coverage /
   deductibles / benefits / exclusions / documents / renewal /
   activity).
@@ -197,3 +197,132 @@ that error rather than guessed at.
 - **Later, explicitly not before this is stable**: Supabase
   (auth + database), real AI for Ask Roni and policy-photo reading,
   and real insurance quoting APIs.
+
+---
+
+## M2 — Marketplace, with Auto as the first working vertical
+
+M2 makes **Auto** a complete, click-through fictional quoting
+experience, and lays out the architecture every other category will
+reuse. Per the M2 brief: still no Supabase, no real auth, no real
+insurance APIs, no real AI, no payments.
+
+### What M2 adds
+
+```
+src/app/(app)/market/
+├── page.tsx                        REPLACED: real 8-category grid (was a placeholder)
+└── auto/
+    ├── layout.tsx                    wraps the flow in AutoQuoteProvider
+    ├── page.tsx                       Step 1 — Vehicle
+    ├── driver/page.tsx                 Step 2 — Driver
+    ├── priorities/page.tsx              Step 3 — Priorities
+    └── results/
+        ├── page.tsx                      ranked/sortable results + compare bar
+        ├── [optionId]/page.tsx            plan details
+        └── compare/page.tsx                side-by-side comparison (?ids=a,b,c)
+
+src/lib/
+├── types.ts                        + InsuranceOption, PurchaseMode, PriorityKey,
+│                                      AutoVehicleAnswers, AutoDriverAnswers
+├── data/
+│   ├── auto-options.ts               FICTIONAL Auto catalog (Plan A/B/C + sponsored)
+│   └── categories.ts                 + full 8-category Marketplace metadata
+├── services/
+│   └── quote-provider.ts              InsuranceQuoteProvider interface — the seam
+│                                       a real Bindable/carrier integration plugs
+│                                       into later, without touching any UI
+├── logic/
+│   ├── rank-options.ts                transparent priority-based ranking + sorting
+│   └── ask-roni-scripted.ts           scripted (non-AI) contextual Q&A about a quote
+└── state/
+    └── auto-quote-context.tsx         React Context: vehicle/driver/priorities
+                                        survive navigation within the Auto flow
+
+src/components/
+├── ui/  TextField, SelectField, Modal                (new, generic)
+└── roni/ PriorityPicker, StepProgress, OptionResultCard,
+         CompareTable, OptionAskRoni, PurchaseActionSheet,
+         HowRoniMakesMoney                              (new, product-specific)
+```
+
+### Files modified (not new)
+
+- `src/components/ui/Icon.tsx` — added `moto`, `plane`, `chevronDown`,
+  `close`, `info`, `lock`, `compare` icons (needed for the Marketplace
+  grid and the new screens). Every M1 icon is untouched.
+- `src/components/ui/Button.tsx` — added a `disabled` visual state
+  (`opacity-40`, no pointer events). Purely additive.
+- `src/lib/types.ts` — added the M2 types listed above, after the
+  existing M1 types. Nothing M1 already used was changed or removed.
+- `src/lib/data/categories.ts` — added `MARKETPLACE_CATEGORY_META` and
+  `MARKETPLACE_CATEGORY_ORDER` for the 8-category grid. `CATEGORY_META`
+  (what Home uses) is untouched.
+- `src/components/roni/MonitoringTeaser.tsx` — **one line**: the
+  "Compare options" button on Home now links to
+  `/market/auto/results` instead of `/market`, since that page now
+  exists and is what that button always meant to point at. This is the
+  only change to the M1 Home experience, and it's the specific
+  exception the M2 brief allowed ("do not modify... unless technically
+  necessary").
+- `src/app/(app)/market/page.tsx` — replaced the M1 "Coming soon"
+  placeholder with the real Marketplace grid described above.
+
+### Architecture decisions
+
+- **`InsuranceQuoteProvider`** (M2 spec §11): an interface with one
+  method, `getOptions(category)`. Today only
+  `FictionalQuoteProvider` exists, returning the fixed Auto catalog.
+  When a real data partner is ready, a new class implementing the same
+  interface (e.g. `BindableQuoteProvider`) replaces the one line that
+  constructs `quoteProvider` — no page or component changes.
+- **Ranking is transparent, not a black box** (§5, §14): `rankOptions`
+  returns, for every option, *which* of the user's priorities it
+  scores well on (`strongPriorities`), so the UI can say "matches your
+  priorities: lower price" instead of just reordering things silently.
+  Nothing is ever labeled "best."
+- **Ask Roni stays scripted** (§9): `answerScriptedQuestion` is a pure
+  function over the fictional catalog already in `lib/data` — there is
+  no network call, no AI SDK, nothing async about it.
+- **Compare state lives in the URL** (`?ids=a,b,c`), not in React
+  Context — so the comparison page works on refresh/share within the
+  session, without needing any backend to persist it.
+- **Vehicle/driver/priority answers live in React Context**
+  (`AutoQuoteProvider`), scoped to `/market/auto/*` via that route's
+  own `layout.tsx`. Per the brief (§12): no database persistence,
+  session-only, and it resets if you leave and come back later.
+
+### What was verified, and what wasn't
+
+Same limitation as M1: no internet access in the environment this was
+written in, so `npm install` / `next build` / `tsc` could not be run
+against the real packages. What was checked by hand/script instead:
+
+- Every `@/...` import across the **entire** project (M1 + M2) resolves
+  to a file that exports the name being imported.
+- Every `href` / `router.push` target used anywhere in the app has a
+  matching `page.tsx`.
+- Every component using React hooks is marked `"use client"`.
+- No secrets anywhere in the new files.
+- Every new fictional-data file/module is labeled as such, and every
+  `InsuranceOption` carries `isFictional: true`.
+
+**The Vercel build (after you push) is still the real test.** If it
+fails, paste the exact error back.
+
+### Known limitations of this milestone
+
+- Only Auto has a working quote flow. The other 7 categories show
+  "Coming soon" and are intentionally not clickable.
+- The Auto catalog is fixed (4 fictional options) — sorting and
+  ranking work, but there's no pagination or filtering by carrier.
+- "Continue with carrier" and "Buy with RONI" only open an explanatory
+  modal — no real handoff exists yet (there's nowhere real to hand off
+  to).
+- Refreshing a step of the quote flow (vehicle/driver/priorities)
+  loses progress on that step, by design — nothing is saved until a
+  real backend exists.
+- The comparison page trusts whatever `ids` are in the URL; unknown or
+  malformed ids are silently dropped rather than erroring, which is
+  intentional for a prototype but would want tightening later.
+

@@ -52,7 +52,7 @@ export function Button(props: ButtonProps) {
   } = props;
 
   const classes = cx(
-    "inline-flex items-center justify-center gap-2 rounded-full font-bold text-center transition-opacity active:opacity-80",
+    "inline-flex items-center justify-center gap-2 rounded-full font-bold text-center transition-opacity active:opacity-80 disabled:opacity-40 disabled:pointer-events-none",
     VARIANT_CLASSES[variant],
     SIZE_CLASSES[size],
     block && "flex w-full",

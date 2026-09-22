@@ -40,7 +40,7 @@ export function MonitoringTeaser({ policy, finding }: MonitoringTeaserProps) {
         Up to {formatMoney(finding.maxMonthlySavings)}/month
       </div>
       <div className="mt-4">
-        <Button variant="sun" size="sm" href="/market">
+        <Button variant="sun" size="sm" href="/market/auto/results">
           Compare options
         </Button>
         <button
