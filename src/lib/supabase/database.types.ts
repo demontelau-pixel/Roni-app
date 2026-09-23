@@ -33,6 +33,21 @@ export type ExtractionStatus = "pending" | "processing" | "complete" | "failed" 
 /** Same recursive shape Supabase's own codegen uses for `jsonb` columns. */
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
+/**
+ * Every table below includes `Relationships` — even `[]` for tables
+ * with none — because `@supabase/postgrest-js`'s `GenericTable` type
+ * requires that key to consider a table's shape valid. Without it,
+ * `Database["public"]["Tables"][x]` doesn't structurally satisfy
+ * `GenericTable`, and `.insert()`/`.update()` silently infer `never`
+ * for their argument instead of the real `Insert`/`Update` type —
+ * this was the actual cause of the Vercel build failure this file
+ * fixes (`owner_user_id does not exist in type 'never[]'`), not
+ * anything wrong with the `Insert` types themselves. Foreign keys to
+ * `auth.users` are omitted from every `Relationships` array: that
+ * schema isn't modeled in this hand-written `Database` type, so
+ * there's no `referencedRelation` to point them at — Supabase's own
+ * codegen does the same when a referenced schema isn't included.
+ */
 export interface Database {
   public: {
     Tables: {
@@ -54,6 +69,8 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["profiles"]["Insert"]>;
+        // profiles.id -> auth.users.id only — auth schema not modeled here.
+        Relationships: [];
       };
       households: {
         Row: {
@@ -71,6 +88,8 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["households"]["Insert"]>;
+        // households.created_by -> auth.users.id only — auth schema not modeled here.
+        Relationships: [];
       };
       household_members: {
         Row: {
@@ -92,6 +111,16 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["household_members"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "household_members_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+        // household_members.user_id -> auth.users.id — auth schema not modeled here.
       };
       policies: {
         Row: {
@@ -131,6 +160,16 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["policies"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "policies_household_id_fkey";
+            columns: ["household_id"];
+            isOneToOne: false;
+            referencedRelation: "households";
+            referencedColumns: ["id"];
+          },
+        ];
+        // policies.owner_user_id -> auth.users.id — auth schema not modeled here.
       };
       policy_documents: {
         Row: {
@@ -158,6 +197,16 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["policy_documents"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "policy_documents_policy_id_fkey";
+            columns: ["policy_id"];
+            isOneToOne: false;
+            referencedRelation: "policies";
+            referencedColumns: ["id"];
+          },
+        ];
+        // policy_documents.owner_user_id -> auth.users.id — auth schema not modeled here.
       };
       policy_extracted_data: {
         Row: {
@@ -189,6 +238,23 @@ export interface Database {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["policy_extracted_data"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "policy_extracted_data_policy_id_fkey";
+            columns: ["policy_id"];
+            isOneToOne: false;
+            referencedRelation: "policies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "policy_extracted_data_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "policy_documents";
+            referencedColumns: ["id"];
+          },
+        ];
+        // policy_extracted_data.owner_user_id -> auth.users.id — auth schema not modeled here.
       };
       policy_extracted_data_evidence: {
         Row: {
@@ -216,6 +282,23 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["policy_extracted_data_evidence"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "policy_extracted_data_evidence_extracted_data_id_fkey";
+            columns: ["extracted_data_id"];
+            isOneToOne: false;
+            referencedRelation: "policy_extracted_data";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "policy_extracted_data_evidence_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "policy_documents";
+            referencedColumns: ["id"];
+          },
+        ];
+        // policy_extracted_data_evidence.owner_user_id -> auth.users.id — auth schema not modeled here.
       };
     };
     Views: Record<string, never>;
