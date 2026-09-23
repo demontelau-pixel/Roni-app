@@ -1,5 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import type { Database } from "@/lib/supabase/database.types";
+import type { CookieToSet } from "@/lib/supabase/cookies";
 
 /**
  * M3.0 auth foundation: this ONLY refreshes the Supabase session
@@ -30,12 +32,18 @@ export async function middleware(request: NextRequest) {
 
   let response = NextResponse.next({ request });
 
-  const supabase = createServerClient(supabaseUrl, supabasePublishableKey, {
+  // <Database> isn't needed for anything this file actually queries
+  // (only `supabase.auth.getUser()` below) — it's here so this call's
+  // generic inference matches `lib/supabase/server.ts`'s exactly,
+  // removing one variable from why `cookies.setAll`'s inferred type
+  // could differ between the two. See `lib/supabase/cookies.ts` for
+  // the full explanation of why `setAll` is explicitly typed at all.
+  const supabase = createServerClient<Database>(supabaseUrl, supabasePublishableKey, {
     cookies: {
       getAll() {
         return request.cookies.getAll();
       },
-      setAll(cookiesToSet) {
+      setAll(cookiesToSet: CookieToSet[]) {
         cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
         response = NextResponse.next({ request });
         cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
