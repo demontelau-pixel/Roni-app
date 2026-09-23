@@ -9,6 +9,11 @@ export function formatMoney(amount: number): string {
   return `$${Math.round(amount).toLocaleString("en-US")}`;
 }
 
+/** Same as `formatMoney`, but for a value CMS might not have returned — never invents a number. */
+export function formatMoneyOrUnavailable(amount: number | null): string {
+  return amount === null ? "Not available" : formatMoney(amount);
+}
+
 export function formatDate(iso: string): string {
   const d = new Date(`${iso}T00:00:00Z`);
   return d.toLocaleDateString("en-US", {

@@ -45,7 +45,7 @@ export default function MarketPage() {
           return (
             <Link
               key={key}
-              href="/market/auto"
+              href={`/market/${key}`}
               className="relative flex min-h-[118px] flex-col justify-center gap-2.5 rounded-[20px] border border-line bg-surface p-4 shadow-[0_1px_2px_rgba(16,34,58,0.05),0_8px_22px_rgba(16,34,58,0.05)] transition-transform hover:-translate-y-0.5 hover:border-primary"
             >
               {body}

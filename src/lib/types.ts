@@ -141,3 +141,146 @@ export const EMPTY_AUTO_DRIVER: AutoDriverAnswers = {
   currentCarrier: "",
   currentMonthlyPremium: "",
 };
+
+/* ------------------------------------------------------------------ */
+/* M2.5 Phase A — Health / CMS Marketplace types                       */
+/* ------------------------------------------------------------------ */
+
+export interface HealthLocation {
+  zip: string;
+  /** 5-digit county FIPS — required by CMS, resolved from the ZIP. */
+  countyfips: string;
+  /** 2-letter USPS state abbreviation. */
+  state: string;
+}
+
+export interface HealthApplicant {
+  /** Either age or dob is sent to CMS — whichever the person filled in. */
+  age: string;
+  dob: string;
+  gender: "Male" | "Female" | "";
+  usesTobacco: "yes" | "no" | "";
+}
+
+export interface HealthMember {
+  /** Client-side key only — never sent to CMS. */
+  id: string;
+  /** Either age or dob is sent to CMS — whichever the person filled in. Same rule as the primary applicant. */
+  age: string;
+  dob: string;
+  gender: "Male" | "Female" | "";
+  usesTobacco: "yes" | "no" | "";
+}
+
+export interface HealthHousehold {
+  /** Optional. Omitting it means CMS returns full price, no tax credit estimate. */
+  income: string;
+  /**
+   * Household members beyond the primary applicant. Each one is sent
+   * to CMS as its own `Person` — CMS prices a household by summing
+   * real per-person data, not a headcount, so RONI collects the same
+   * minimum CMS needs (age/dob + tobacco use) for each one rather
+   * than guessing. See M2.5 correction notes in the README.
+   */
+  additionalMembers: HealthMember[];
+}
+
+export function emptyHealthMember(id: string): HealthMember {
+  return { id, age: "", dob: "", gender: "", usesTobacco: "" };
+}
+
+export const EMPTY_HEALTH_LOCATION: HealthLocation = { zip: "", countyfips: "", state: "" };
+export const EMPTY_HEALTH_APPLICANT: HealthApplicant = { age: "", dob: "", gender: "", usesTobacco: "" };
+export const EMPTY_HEALTH_HOUSEHOLD: HealthHousehold = { income: "", additionalMembers: [] };
+
+export type HealthPlanType = "HMO" | "PPO" | "EPO" | "POS" | "Indemnity";
+export type MetalLevel = "Catastrophic" | "Bronze" | "Silver" | "Gold" | "Platinum";
+
+/** One line item (primary care, specialist, generic drugs, ...), from CMS's `benefits[]`. */
+export interface HealthBenefitSummary {
+  label: string;
+  /** Human-readable cost-sharing string as CMS provides it (e.g. "$30 copay"), or null if CMS didn't return one. */
+  costSharing: string | null;
+  covered: boolean | null;
+}
+
+/**
+ * A REAL health plan normalized from the CMS Marketplace API — the
+ * opposite of `InsuranceOption`/`Policy`'s `isFictional: true`. Every
+ * field is either a real value from CMS or explicitly `null` when CMS
+ * didn't return it — nothing here is invented (M2.5 spec §4).
+ */
+export interface HealthPlan {
+  /** 14-character HIOS plan ID, as assigned by CMS. */
+  id: string;
+  issuer: string;
+  planName: string;
+  planType: HealthPlanType | null;
+  metalLevel: MetalLevel | null;
+  /** Monthly premium after an estimated tax credit is applied, if one could be calculated. */
+  monthlyPremium: number | null;
+  /** Monthly premium before any tax credit — always present when CMS returns a premium at all. */
+  monthlyPremiumBeforeCredit: number | null;
+  /** Derived: `monthlyPremiumBeforeCredit - monthlyPremium`, only when both are known. Calculated, not returned directly by CMS. */
+  estimatedTaxCredit: number | null;
+  /** Individual, in-network medical deductible, when CMS returns one matching that shape. */
+  deductible: number | null;
+  /** Individual, in-network maximum out-of-pocket. */
+  maxOutOfPocket: number | null;
+  primaryCare: HealthBenefitSummary | null;
+  specialist: HealthBenefitSummary | null;
+  genericDrugs: HealthBenefitSummary | null;
+  hsaEligible: boolean | null;
+  /** Whether the plan has a national provider network — the only network signal normalized in this milestone. */
+  hasNationalNetwork: boolean | null;
+  /** 0–5 star quality rating, only when CMS has one for this plan/year. */
+  qualityRating: number | null;
+  benefitsUrl: string | null;
+  networkUrl: string | null;
+  year: number;
+  source: "cms";
+  /** Always true. The real-data counterpart to `isFictional: true` elsewhere in RONI. */
+  isReal: true;
+}
+
+export interface HealthSearchCriteria {
+  location: HealthLocation;
+  year: number;
+  applicant: HealthApplicant;
+  household: HealthHousehold;
+}
+
+export type HealthQuoteErrorCode =
+  | "missing_api_key"
+  | "invalid_zip"
+  | "county_required"
+  | "no_plans"
+  | "cms_unavailable"
+  | "timeout"
+  | "malformed_response"
+  | "invalid_request"
+  | "unknown";
+
+/** A friendly, pre-written error — never the raw CMS error body (M2.5 spec §8). */
+export interface HealthQuoteError {
+  code: HealthQuoteErrorCode;
+  message: string;
+}
+
+/**
+ * Metadata about a Health search result set, computed by whichever
+ * `HealthQuoteProvider` ran the search (M2.5.1). Deliberately
+ * provider-agnostic — nothing here is a CMS-specific field name, so a
+ * future second Health provider (or a search that merges CMS with
+ * another provider) can produce the same shape.
+ */
+export interface HealthSearchMeta {
+  /** The provider's own count of how many plans matched, when it reports one. Never guessed. */
+  totalAvailable: number | null;
+  /** How many distinct plans RONI actually loaded (after de-duplication). */
+  loadedCount: number;
+  /** Distinct issuers among the loaded plans — derived from the real dataset, not requested from the provider directly. */
+  uniqueCarrierCount: number;
+  /** False if a later page failed and RONI stopped early — the loaded set may not be everything that matched. */
+  complete: boolean;
+}

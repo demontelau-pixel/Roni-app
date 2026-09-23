@@ -326,3 +326,365 @@ fails, paste the exact error back.
   malformed ids are silently dropped rather than erroring, which is
   intentional for a prototype but would want tightening later.
 
+---
+
+## M2.5 Phase A — Health, powered by the real CMS Marketplace API
+
+This is RONI's first category backed by **real external data** — no
+fictional catalog. Everything else (Auto, Home dashboard, the rest of
+the app) is unchanged.
+
+### 1. Files added
+
+```
+src/lib/
+├── types.ts                              + Health types (see §2 below) — additive only
+├── utils.ts                              + formatMoneyOrUnavailable() — additive only
+├── logic/
+│   └── validate-health-criteria.ts        request-shape validation, no schema library
+├── services/
+│   ├── quote-provider.ts                  doc comment only — no behavior change
+│   ├── health-quote-provider.ts           HealthQuoteProvider interface + CMSMarketplaceProvider
+│   └── cms/
+│       ├── types.ts                        raw CMS wire types, isolated from RONI's types
+│       ├── client.ts                       SERVER-ONLY CMS HTTP client (imports `server-only`)
+│       └── normalize.ts                    pure CMS → HealthPlan mapping, no I/O
+└── state/
+    └── health-quote-context.tsx            React Context for the Health quote flow
+
+src/app/
+├── api/health/
+│   ├── market-years/route.ts               GET  — coverage years (cached 1h, no PII)
+│   ├── counties/route.ts                   POST — ZIP → county/counties
+│   ├── search/route.ts                     POST — real plan search
+│   └── plans/[planId]/route.ts             POST — real plan details w/ premium
+└── (app)/market/health/
+    ├── layout.tsx                          wraps the flow in HealthQuoteProvider
+    ├── page.tsx                             Step 1 — Location (real county lookup)
+    ├── about-you/page.tsx                    Step 2 — Applicant
+    ├── household/page.tsx                     Step 3 — Household size + income
+    └── results/
+        ├── page.tsx                            real plans, sort/filter, CMS attribution
+        └── [planId]/page.tsx                    real plan details
+
+src/components/roni/
+├── CmsAttribution.tsx        "data provided by CMS" badge (two sizes)
+├── HealthQuoteErrorState.tsx  friendly error display + optional retry
+└── HealthPlanCard.tsx         result card for a real plan
+```
+
+### Files modified
+
+- `package.json` — added one dependency: **`server-only`** (official,
+  tiny Next.js package). Importing it in `cms/client.ts` and
+  `health-quote-provider.ts` makes the **build itself fail** if either
+  file is ever pulled into a client bundle — this isn't just a
+  convention, it's enforced.
+- `.env.example` — added `CMS_MARKETPLACE_API_KEY=` with no value, and
+  a comment warning never to prefix it `NEXT_PUBLIC_`.
+- `src/lib/data/categories.ts` — removed the `comingSoon: true`
+  override for `health`, so it's now clickable from the Marketplace
+  grid. Nothing else in that file changed.
+- `src/app/(app)/market/page.tsx` — **one bug fix**: every functional
+  category card used to link to the hardcoded `/market/auto`. With
+  two functional categories now, each card links to `/market/${key}`
+  instead. Auto's behavior is unaffected (`/market/auto` either way).
+- `src/lib/services/quote-provider.ts` — doc-comment only, explaining
+  how `HealthQuoteProvider` relates to it. No exported symbol changed.
+
+**The Auto quote flow itself (`/market/auto/*`) was not touched.**
+
+### 2. Architecture
+
+```
+Browser (client components)
+    │  fetch("/api/health/search", { method: "POST", body: criteria })
+    │  — same-origin request, no API key anywhere in this call
+    ▼
+RONI Route Handlers  (src/app/api/health/*/route.ts)
+    │  validate the request shape, call the provider
+    ▼
+HealthQuoteProvider interface  (src/lib/services/health-quote-provider.ts)
+    │  only implementation today: CMSMarketplaceProvider
+    ▼
+CMS client  (src/lib/services/cms/client.ts)  ← the ONLY file that reads
+    │  reads process.env.CMS_MARKETPLACE_API_KEY, adds it as a query
+    │  param, calls CMS, enforces a 10s timeout, throws typed errors
+    ▼
+CMS Marketplace API (marketplace.api.healthcare.gov)
+    │  raw JSON response
+    ▼
+Normalizer  (src/lib/services/cms/normalize.ts)  — pure functions,
+    │  CMS's raw `Plan` shape → RONI's `HealthPlan`, nulls for
+    │  anything CMS didn't return
+    ▼
+HealthQuoteProvider returns `HealthPlan[]` back up through the route
+handler → JSON response → client components render `HealthPlanCard`
+```
+
+Two design choices worth calling out:
+
+- **`HealthQuoteProvider` is a sibling of `InsuranceQuoteProvider`
+  (Auto), not the same interface.** Auto's `getOptions(category)` has
+  no room for a real household/place/year, which CMS requires. Both
+  are the same *pattern* — one interface, one real or fictional
+  implementation behind it — applied to two different request shapes.
+  A future private Health carrier provider would implement
+  `HealthQuoteProvider`, the same way a future `BindableQuoteProvider`
+  would implement `InsuranceQuoteProvider`.
+- **Real data gets the same transparency treatment as fictional
+  data.** Every `HealthPlan` carries `isReal: true`, `source: "cms"`,
+  and a year — the mirror image of `InsuranceOption`'s
+  `isFictional: true`. Nothing in RONI's data layer is ever
+  ambiguous about where it came from.
+
+### 3. Exact CMS endpoints used
+
+All from CMS's published spec
+(`developer.cms.gov/public-apis/documentation/marketplace-api`), base
+URL `https://marketplace.api.healthcare.gov/api/v1`:
+
+| Endpoint | Method | Used for |
+|---|---|---|
+| `/market-years` | GET | Populating the coverage-year selector |
+| `/counties/by/zip/{zipcode}` | GET | Resolving a ZIP to its county/counties (CMS requires county FIPS, not just ZIP) |
+| `/plans/search` | POST | The results list — `household`, `market: "Individual"`, `place`, `year` |
+| `/plans/{plan_id}` | POST | Plan details, with premium/tax-credit calculated for the household |
+
+Nothing invented — no endpoint here is assumed; each one is named and
+shaped exactly as CMS's own OpenAPI spec documents it (e.g. auth is a
+query parameter named `apikey`, not a header, because that's what CMS
+requires).
+
+### 4. What's real vs. calculated
+
+- **Directly from CMS, unmodified:** issuer name, plan name, plan
+  type, metal level, `premium` (before credit), deductible amounts,
+  max out-of-pocket amounts, benefit cost-sharing text, HSA
+  eligibility, national network flag, quality rating, benefit/network
+  URLs.
+- **Also from CMS, but only when household income was provided:**
+  `premium_w_credit` (premium after an estimated tax credit) — this
+  number comes from CMS's own subsidy calculation, not RONI's.
+- **Calculated by RONI, not returned by CMS directly:**
+  `estimatedTaxCredit` is simple subtraction
+  (`monthlyPremiumBeforeCredit − monthlyPremium`), computed
+  client-invisible on the server so the UI can say "~$X/mo estimated
+  credit" without asking the person to do math. This is the only
+  derived number in the whole Health flow.
+- **Never fabricated:** any CMS field RONI's normalizer doesn't find
+  becomes `null`, and the UI shows "Not available" — never a guess,
+  never a zero standing in for "unknown."
+
+### 5. Security — the API key never reaches client code
+
+- The key is read in exactly one place: `process.env.CMS_MARKETPLACE_API_KEY`
+  inside `src/lib/services/cms/client.ts`, a file that starts with
+  `import "server-only"`. That import makes Next.js **refuse to
+  build** if this file (or anything that imports it) is ever bundled
+  for the browser — this is a compiler-enforced guarantee, not just a
+  promise in a comment.
+- No client component (`"use client"`) imports `lib/services/cms/*`
+  or `lib/services/health-quote-provider.ts` anywhere — verified by
+  script, not just by eye (see §7).
+- The browser only ever calls RONI's own `/api/health/*` routes,
+  same-origin, with no key in the request.
+- Every route handler returns RONI's own typed `{ ok, data | error }`
+  envelope — never CMS's raw response body or raw error object — so
+  there's no path by which a CMS-side detail (let alone the key) could
+  leak through a response.
+- The key is never logged anywhere (checked — see §7) and never
+  returned in a response body.
+- `.env.local` stays in `.gitignore` (inherited from M1, confirmed
+  still present); `.env.example` only documents the variable's name.
+
+### 6. Known limitations
+
+- **One applicant only.** The Health flow quotes for a single person;
+  adding a spouse or dependents to the household is future work — CMS
+  supports it, RONI's UI doesn't collect it yet.
+- **County disambiguation only, no address-level precision.** Some
+  ZIP codes span multiple counties/rate areas; RONI asks the person to
+  pick when that happens, but doesn't do a full address lookup.
+- **No provider/drug search.** "Network" only shows CMS's
+  `has_national_network` flag — a real provider-directory or drug-
+  coverage lookup (CMS has endpoints for both) is out of scope here.
+- **CMS API keys expire every 60 days** (per CMS's own docs) — this is
+  an operational note for whoever manages the production key, not
+  something RONI's code can prevent.
+- **No caching of search results** beyond the market-years endpoint —
+  every search/detail request hits CMS live, which is what CMS's docs
+  say the API is meant for, but it does mean no offline fallback.
+- Household income, if entered, is sent to CMS for that one request
+  and is not stored by RONI anywhere (no database yet in this
+  milestone) — worth keeping in mind once persistence exists later.
+
+### 7. Testing instructions
+
+Same constraint as M1/M2: no internet access in the environment this
+was written in, so `npm install` / `next build` / `tsc` could not be
+run against the real packages, and no live CMS request could be made
+(also no API key available here). What **was** verified, by script:
+
+- Every `@/...` import across the whole project resolves to a real
+  export (including every new M2.5 file).
+- Every route/layout/API route file is where Next.js expects it.
+- Every component using React hooks is `"use client"`.
+- `CMS_MARKETPLACE_API_KEY` appears in exactly two places: the reader
+  in `cms/client.ts`, and the empty declaration in `.env.example` —
+  nowhere else in the codebase, and never with a `NEXT_PUBLIC_` prefix.
+- No `"use client"` file imports anything from `lib/services/cms/` or
+  `health-quote-provider.ts`.
+- No `console.log/warn/error` calls exist in the CMS client or the
+  Health provider.
+- Every API route's error responses use RONI's own written messages,
+  never a CMS response passed through.
+
+**What you need to actually test it end-to-end:**
+
+1. Confirm `CMS_MARKETPLACE_API_KEY` is set in your Vercel project's
+   environment variables (Production **and** Preview, if you test on
+   a preview deploy) — Settings → Environment Variables. If you're
+   testing locally instead, put it in `.env.local` (already
+   git-ignored).
+2. `npm install` (pulls in the one new dependency, `server-only`).
+3. `npm run build` — this is the real test: it will fail loudly if
+   anything is structurally wrong, and it's also the build that would
+   catch the key ever ending up somewhere it shouldn't.
+4. Once deployed: go to Marketplace → Health → enter a real US ZIP
+   code (e.g. `43215`) → continue through the three steps → you
+   should see real plans with real prices. Try a ZIP with no
+   Marketplace plans, or skipping income, to see the empty-state and
+   before/after-credit UI.
+5. To confirm the key truly never reaches the browser: open browser
+   dev tools → Network tab while using the Health flow → inspect the
+   `/api/health/search` request and response — there should be no
+   `apikey` parameter and no key value anywhere in what the browser
+   sent or received.
+
+Do not consider this milestone complete until `npm run build` passes
+in your environment — paste the exact error back here if it doesn't,
+and it'll be fixed against that specific error.
+
+---
+
+## M2.5 Phase A — post-review correction
+
+Two issues were found on review of the overlay before installation.
+This section documents what was actually wrong, what wasn't, and
+exactly what changed.
+
+### 1. Plan details endpoint — verified, not changed
+
+**Finding as reported:** the current CMS docs show plan details as
+`GET /plans/{plan_id}`, but the implementation used `POST`.
+
+**What was actually verified** (live re-fetch of
+`developer.cms.gov/public-apis/documentation/marketplace-api` during
+this correction, not from memory): CMS's current published OpenAPI
+spec documents **two** operations at the same path,
+`/plans/{plan_id}`:
+
+- `GET` — *"Get a plan's basic details, no premium or APTC
+  calculated."*
+- `POST` — *"Get a plan's details, with premium and tax credit
+  calculated,"* body: `household`, `place`, `market`, `year` (the same
+  shape `/plans/search` takes), x-summary: *"Get plan details with
+  premiums for a household."*
+
+RONI's implementation already used the documented `POST` operation —
+correctly, on purpose, so the plan-details page can show the same
+household-specific premium the results list showed, rather than
+falling back to an unsubsidized, one-size-fits-all price. This is not
+an invented endpoint; it's CMS's own documented household-aware
+variant of plan details, sitting at the same path as the simpler
+`GET`. The likely source of the discrepancy: CMS's own "Quickstart"
+narrative section on that page only walks through the plain `GET`
+example — the `POST` variant is real but easy to miss unless you read
+the full path listing.
+
+**Change made:** none to the endpoint or method. Added a code comment
+in `cms/client.ts` quoting the spec directly next to `cmsPlanDetails`,
+so this doesn't need re-verifying from scratch again.
+
+### 2. Household size — real bug, fixed
+
+**Finding confirmed correct.** `toCmsHousehold()` built
+`people: [toCmsPerson(criteria)]` — always exactly one person — no
+matter what the (cosmetic, never-actually-sent) "household size" field
+on the Household step said. Every search for a household of 2+ was
+silently priced as a household of 1.
+
+**Root cause:** the Household step collected a headcount instead of
+real per-person data, because CMS doesn't price a household from a
+headcount at all — it needs each person's own age/dob and tobacco use
+to calculate an accurate premium and subsidy.
+
+**Fix, following CMS's own household guidance:** the fake "size"
+field is gone. In its place, the Household step now lets the person
+add real household members one at a time, each with their own date of
+birth and tobacco-use answer — the same two fields (plus optional
+gender) already collected for the primary applicant in "About you."
+Nothing is fabricated: a member isn't included in the CMS request
+until those fields are actually filled in (enforced by
+`householdComplete` in the Health quote context and by
+`validateHealthSearchCriteria` server-side). `relationship` is
+deliberately still omitted — CMS's own docs say it's optional and that
+omitting it just means "as accurate an eligibility determination as
+possible without it," which is a legitimate, non-fabricated path,
+not a gap RONI should paper over with a guessed value.
+
+**Files changed:**
+- `src/lib/types.ts` — `HealthHousehold` no longer has `size`; it now
+  has `additionalMembers: HealthMember[]`, plus the new `HealthMember`
+  type and an `emptyHealthMember()` helper.
+- `src/lib/state/health-quote-context.tsx` — replaced `setHousehold`
+  with `setIncome`, `addMember`, `updateMember`, `removeMember`, and a
+  new `householdComplete` flag.
+- `src/lib/services/health-quote-provider.ts` — `toCmsHousehold()`
+  rewritten to build one real `CmsPerson` per applicant + each
+  completed additional member, instead of just the applicant.
+- `src/lib/logic/validate-health-criteria.ts` — validates
+  `household.additionalMembers` (each needs age-or-dob and a
+  tobacco-use answer) instead of the old free-text `size`.
+- `src/app/(app)/market/health/household/page.tsx` — rebuilt: an
+  "Add a household member" flow with a small card per person (date of
+  birth, optional gender, tobacco use) instead of a number field.
+- `src/lib/services/cms/client.ts` — comment only (see §1 above), no
+  behavior change.
+
+**Not changed:** the primary applicant's own fields, the Location and
+About You steps, the search/results/details flow's structure, Auto,
+Home, or anything outside Health.
+
+### Exact CMS endpoints/methods in use after this correction
+
+Unchanged from the original M2.5 delivery — all confirmed against a
+fresh, live re-fetch of CMS's spec during this correction:
+
+| Endpoint | Method |
+|---|---|
+| `/market-years` | GET |
+| `/counties/by/zip/{zipcode}` | GET |
+| `/plans/search` | POST |
+| `/plans/{plan_id}` | POST *(the household-aware variant, confirmed documented — see §1 above)* |
+
+### Verification performed for this patch
+
+Same method as the original M2.5 delivery (no internet access in this
+environment, so no `npm install`/`next build`/live CMS call could be
+run here):
+
+- Full-project import/export resolution re-checked after the patch —
+  clean.
+- No leftover code references to the removed `household.size` field
+  (only an explanatory comment mentions the old name).
+- Every component using React hooks still correctly marked
+  `"use client"`.
+- `CMS_MARKETPLACE_API_KEY` still appears in exactly the same two
+  places as before (the reader in `cms/client.ts`, the empty
+  declaration in `.env.example`) — this patch touches no
+  authentication code.
+
+`npm run build` in your environment is still the authoritative check.
+

@@ -29,7 +29,6 @@ export const MARKETPLACE_CATEGORY_META: Record<MarketplaceCategory, CategoryMeta
   home: { ...CATEGORY_META.home, comingSoon: true },
   renters: { ...CATEGORY_META.renters, comingSoon: true },
   life: { ...CATEGORY_META.life, comingSoon: true },
-  health: { ...CATEGORY_META.health, comingSoon: true },
   pet: { ...CATEGORY_META.pet, comingSoon: true },
   motorcycle: { label: "Motorcycle", icon: "moto", comingSoon: true },
   travel: { label: "Travel", icon: "plane", comingSoon: true },
