@@ -2,6 +2,7 @@ import Link from "next/link";
 import { SAMPLE_POLICIES } from "@/lib/data/policies";
 import { SAMPLE_USER } from "@/lib/data/user";
 import { monitoringFindingFor } from "@/lib/data/monitoring";
+import { getCurrentIdentity } from "@/lib/auth/identity";
 import { Icon } from "@/components/ui/Icon";
 import { Panel } from "@/components/ui/Panel";
 import { PolicyCard } from "@/components/roni/PolicyCard";
@@ -10,14 +11,22 @@ import { MonitoringTeaser } from "@/components/roni/MonitoringTeaser";
 import { AskRoniTeaser } from "@/components/roni/AskRoniTeaser";
 import { Greeting } from "@/components/roni/Greeting";
 
+const NEUTRAL_NAME = "there";
+
 /**
- * Server Component: reads the sample data directly (no need for the
- * client-side `useAppState()` context here — that hook exists for
- * client components further down the tree, e.g. once a real signed-in
- * user replaces `SAMPLE_USER` in a later milestone).
+ * Server Component. Home stays reachable while signed out (same as
+ * before M3 Auth), so it still falls back to `SAMPLE_USER` in that
+ * case — but once someone is actually signed in, the greeting and
+ * avatar initial use their real name from `getCurrentIdentity()`
+ * (`lib/auth/identity.ts`), never the fictional demo user. Everything
+ * else on this page (the sample policies, monitoring teaser, etc.)
+ * is unchanged and intentionally still fictional — see the M3 Auth
+ * follow-up fix notes for why only identity moved to real data here.
  */
-export default function HomePage() {
-  const user = SAMPLE_USER;
+export default async function HomePage() {
+  const identity = await getCurrentIdentity();
+  const firstName = identity ? (identity.firstName ?? NEUTRAL_NAME) : SAMPLE_USER.firstName;
+
   const policies = SAMPLE_POLICIES;
   const myPolicies = policies.filter((p) => p.owner === "me");
   const hasLifePolicy = myPolicies.some((p) => p.category === "life");
@@ -27,13 +36,13 @@ export default function HomePage() {
   return (
     <div className="flex flex-col gap-[18px]">
       <div className="flex items-start justify-between gap-3">
-        <Greeting firstName={user.firstName} />
+        <Greeting firstName={firstName} />
         <Link
           href="/profile"
           aria-label="Profile"
           className="grid h-11 w-11 flex-none place-items-center rounded-full bg-ink font-extrabold text-bg"
         >
-          {user.firstName[0] ?? "A"}
+          {firstName[0]?.toUpperCase() ?? "?"}
         </Link>
       </div>
 

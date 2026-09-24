@@ -1,14 +1,19 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
+import { getUser } from "@/lib/auth/session";
 import { RoniAvatar } from "@/components/roni/RoniAvatar";
 import { Button } from "@/components/ui/Button";
 
 /**
- * Ported from `welcomeScreen()`. M1 has no real accounts yet, so
- * "Create account" / "Sign in" both lead straight into the app with
- * the fixed sample account — a later milestone replaces this with
- * real Supabase auth without changing anything under `(app)/`.
+ * Ported from `welcomeScreen()`. M3 wires the two buttons to real
+ * Supabase auth (`/sign-up`, `/sign-in`) — everything else about this
+ * screen is unchanged. Someone already signed in skips straight to
+ * Home rather than seeing a marketing screen again.
  */
-export default function WelcomePage() {
+export default async function WelcomePage() {
+  const user = await getUser();
+  if (user) redirect("/home");
+
   return (
     <div className="mx-auto flex min-h-dvh max-w-[480px] flex-col justify-between gap-7 px-[18px] py-8 min-[520px]:border-x min-[520px]:border-line">
       <div className="flex items-center gap-2.5 text-2xl font-extrabold tracking-wide">
@@ -29,11 +34,11 @@ export default function WelcomePage() {
       </div>
 
       <div className="flex flex-col gap-2.5">
-        <Button href="/home" block>
-          Continue to RONI
+        <Button href="/sign-up" block>
+          Create account
         </Button>
         <Link
-          href="/home"
+          href="/sign-in"
           className="flex w-full items-center justify-center rounded-full border border-line px-5 py-3 text-[15px] font-bold text-ink"
         >
           Sign in

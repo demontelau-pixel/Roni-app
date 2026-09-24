@@ -1,6 +1,9 @@
+import { requireUser } from "@/lib/auth/session";
 import { ComingSoon } from "@/components/roni/ComingSoon";
 
-export default function WalletPage() {
+export default async function WalletPage() {
+  await requireUser("/wallet");
+
   return (
     <ComingSoon
       icon="wallet"
