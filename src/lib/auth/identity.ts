@@ -44,11 +44,17 @@ function pickName(profileValue: string | null | undefined, metadataValue: unknow
  */
 export async function resolveIdentity(user: User): Promise<AuthenticatedIdentity> {
   const supabase = await createClient();
-  const { data: profile } = await supabase
+  const { data } = await supabase
     .from("profiles")
     .select("first_name, last_name, email")
     .eq("id", user.id)
     .maybeSingle();
+
+  const profile = data as {
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+  } | null;
 
   return {
     firstName: pickName(profile?.first_name, user.user_metadata?.first_name),
