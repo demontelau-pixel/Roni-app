@@ -95,6 +95,24 @@ const PATHS = {
     </>
   ),
   compare: <path d="M8 3v18M16 3v18M3 8h5M16 8h5M3 16h5M16 16h5" />,
+  upload: (
+    <>
+      <path d="M12 16V4M7 9l5-5 5 5" />
+      <path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3" />
+    </>
+  ),
+  document: (
+    <>
+      <path d="M7 3h7l4 4v14a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" />
+      <path d="M14 3v4h4M9 13h6M9 17h6" />
+    </>
+  ),
+  alert: (
+    <>
+      <path d="M12 3l9 16H3z" />
+      <path d="M12 10v4M12 17v.5" />
+    </>
+  ),
 } as const;
 
 export type IconName = keyof typeof PATHS;

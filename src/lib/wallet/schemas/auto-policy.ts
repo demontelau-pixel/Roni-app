@@ -1,9 +1,9 @@
 /**
  * The normalized shape of an extracted Auto policy's facts —
  * `ExtractedPolicyData<AutoPolicyFacts>.data` when `schemaVersion` is
- * `"auto.v1"`. No AI extraction exists yet (M3.0 is infrastructure
- * only); this type is what that future extraction will need to
- * produce, and what the future Wallet UI and Ask Roni will read.
+ * `AUTO_POLICY_SCHEMA_VERSION`. This is what any extraction provider
+ * (dev fallback, regex/keyword, or a future AI/OCR provider) must
+ * produce, and what the Wallet UI and Ask Roni read.
  *
  * FALSE VS. UNKNOWN (read this before touching any field below):
  * every `included: boolean | null` is three-state on purpose.
@@ -12,12 +12,27 @@
  *   - `null`  → RONI doesn't know yet (not extracted, or not found in
  *               the document). This is NOT the same claim as `false`
  *               and must never be displayed or reasoned about as if
- *               it were — see M3.0 spec §3.
+ *               it were.
  * The same rule applies to every other nullable field here: `null`
  * always means "unknown," never "no" or "zero."
+ *
+ * SCHEMA VERSIONING (M3.2): bumped `"auto.v1"` → `"auto.v2"` to add
+ * `included`/`deductible` to PIP, `included` to Medical Payments, and
+ * `included` to Uninsured/Underinsured Motorist (previously these
+ * were bare limits with no three-state coverage flag). A stored
+ * `policy_extracted_data` row's `data` always carries its own
+ * `schemaVersion`, so old and new rows can coexist in the same table
+ * without migrating existing data — a row is only ever read back
+ * through `sanitizeAutoPolicyFacts()` (`lib/wallet/validate-auto-policy-facts.ts`),
+ * which normalizes either shape (or anything malformed) into a
+ * current, valid `AutoPolicyFacts` rather than trusting the stored
+ * JSON directly. This is also what makes re-extraction with a newer
+ * schema version safe later: reprocessing an existing document just
+ * inserts a new `policy_extracted_data` row with the current
+ * `schemaVersion` — the document itself is never touched.
  */
 
-export const AUTO_POLICY_SCHEMA_VERSION = "auto.v1" as const;
+export const AUTO_POLICY_SCHEMA_VERSION = "auto.v2" as const;
 
 export interface AutoPolicySummary {
   category: "auto";
@@ -87,15 +102,37 @@ export interface RentalReimbursementCoverage {
 
 export interface RoadsideAssistanceCoverage {
   included: boolean | null;
+  /** Free-text, e.g. "Up to $75 per disablement" — roadside limits vary too much by carrier for a clean structured shape; kept as plain text rather than invented fields. */
+  details: string | null;
+}
+
+/** `auto.v2` — PIP now carries its own three-state `included` (a policy can state PIP explicitly excluded, distinct from "not determined") plus an optional deductible, matching how Collision/Comprehensive already model included+deductible. */
+export interface PersonalInjuryProtectionCoverage {
+  included: boolean | null;
+  limit: number | null;
+  deductible: number | null;
+}
+
+/** `auto.v2` — adds `included`, previously implied only by `limit` being non-null (which conflated "not extracted" with "not included"). */
+export interface MedicalPaymentsCoverage {
+  included: boolean | null;
+  limit: number | null;
+}
+
+/** `auto.v2` — shared shape for both Uninsured and Underinsured Motorist; adds `included` for the same reason as Medical Payments. */
+export interface UninsuredMotoristCoverage {
+  included: boolean | null;
+  perPerson: number | null;
+  perAccident: number | null;
 }
 
 export interface AutoCoverages {
   bodilyInjury: LimitPair | null;
   propertyDamage: SingleLimit | null;
-  personalInjuryProtection: SingleLimit | null;
-  medicalPayments: SingleLimit | null;
-  uninsuredMotorist: LimitPair | null;
-  underinsuredMotorist: LimitPair | null;
+  personalInjuryProtection: PersonalInjuryProtectionCoverage;
+  medicalPayments: MedicalPaymentsCoverage;
+  uninsuredMotorist: UninsuredMotoristCoverage;
+  underinsuredMotorist: UninsuredMotoristCoverage;
   collision: DeductibleCoverage;
   comprehensive: DeductibleCoverage;
   rentalReimbursement: RentalReimbursementCoverage;
@@ -136,14 +173,14 @@ export function emptyAutoPolicyFacts(): AutoPolicyFacts {
     coverages: {
       bodilyInjury: null,
       propertyDamage: null,
-      personalInjuryProtection: null,
-      medicalPayments: null,
-      uninsuredMotorist: null,
-      underinsuredMotorist: null,
+      personalInjuryProtection: { included: null, limit: null, deductible: null },
+      medicalPayments: { included: null, limit: null },
+      uninsuredMotorist: { included: null, perPerson: null, perAccident: null },
+      underinsuredMotorist: { included: null, perPerson: null, perAccident: null },
       collision: { included: null, deductible: null },
       comprehensive: { included: null, deductible: null },
       rentalReimbursement: { included: null, limitPerDay: null, maxDays: null },
-      roadsideAssistance: { included: null },
+      roadsideAssistance: { included: null, details: null },
     },
     other: { discounts: [], importantExclusions: [] },
   };

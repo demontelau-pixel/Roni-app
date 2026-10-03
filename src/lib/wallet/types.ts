@@ -1,4 +1,5 @@
 import type {
+  AnalysisJobStatus,
   Database,
   ExtractionStatus,
   PremiumFrequency,
@@ -6,7 +7,7 @@ import type {
   WalletPolicyStatus,
 } from "@/lib/supabase/database.types";
 
-export type { WalletCategory, WalletPolicyStatus, PremiumFrequency, ExtractionStatus };
+export type { WalletCategory, WalletPolicyStatus, PremiumFrequency, ExtractionStatus, AnalysisJobStatus };
 
 /**
  * A policy as stored in the Wallet — this is the *record*, not the
@@ -57,7 +58,17 @@ export interface PolicyDocument {
   createdAt: string;
 }
 
-export type NewPolicyDocumentInput = Omit<PolicyDocument, "id" | "ownerUserId" | "createdAt">;
+/**
+ * `id` is optional and normally omitted (Postgres defaults it via
+ * `gen_random_uuid()`). M3.1's upload route passes it explicitly —
+ * generated with `crypto.randomUUID()` *before* the Storage upload —
+ * so the same id can be used in the Storage path convention
+ * (`{user_id}/{policy_id}/{document_id}/{filename}`, migration 0003)
+ * and this row stays trivially findable from that path.
+ */
+export type NewPolicyDocumentInput = Omit<PolicyDocument, "id" | "ownerUserId" | "createdAt"> & {
+  id?: string;
+};
 
 /**
  * One evidence citation for one extracted field — this is what lets a
@@ -79,13 +90,37 @@ export interface ExtractionEvidence {
   fieldPath: string;
   /** The value as it appeared in/near the source, as text — kept separate from the typed value in `data` so evidence never has to be re-typed per field. */
   valueText: string | null;
-  /** 0–1, when the (future) extraction process reports one. */
+  /** 0–1, as declared BY THE MODEL. Never treated as proof of accuracy — see `pageVerified`/`snippetVerified`, which are what this app itself independently confirmed, not what the model claims. */
   confidence: number | null;
   documentId: string | null;
   pageNumber: number | null;
   /** A short quoted or paraphrased excerpt — not the whole page. */
   snippet: string | null;
+  /**
+   * Set ONLY by server code, after the model has already responded
+   * (`lib/services/policy-extraction/verify-evidence.ts`) — never part
+   * of what the model itself fills in, so the model cannot mark its own
+   * citation "verified." `true` only when `pageNumber` is within this
+   * document's real, independently-known page count. `null` when that
+   * page count itself couldn't be determined.
+   */
+  pageVerified: boolean | null;
+  /** Same rule as `pageVerified`: `true` only when `snippet` was actually found in this app's own OCR text for that page. `null` when there was no OCR text for that page to check against — not the same as `false`. */
+  snippetVerified: boolean | null;
   createdAt: string;
+}
+
+/** What a caller provides to record one evidence citation — `ownerUserId` is always derived from the authenticated session, never caller input. */
+export type NewExtractionEvidenceInput = Omit<ExtractionEvidence, "id" | "ownerUserId" | "createdAt">;
+
+/**
+ * `true` only when BOTH independent checks passed — this is the one
+ * function any UI should call to decide whether to show "Verified" vs.
+ * "Unverified reference." Never inline this logic elsewhere, and never
+ * substitute the model's own `confidence` for either check.
+ */
+export function isEvidenceVerified(evidence: Pick<ExtractionEvidence, "pageVerified" | "snippetVerified">): boolean {
+  return evidence.pageVerified === true && evidence.snippetVerified === true;
 }
 
 /**
@@ -115,18 +150,53 @@ export interface ExtractedPolicyData<TData = unknown> {
   /** e.g. `"manual"`, or later `"ai:claude-..."` — never fabricated, always says where a value came from. */
   extractedBy: string | null;
   overallConfidence: number | null;
+  /**
+   * A plain-language, factual summary derived only from this row's
+   * `data` — AI analysis, not a policy fact (M3.2 principle 2 / M3.3
+   * §2). Deliberately its own column, not a field inside `data` — see
+   * `supabase/migrations/0005_policy_extraction_summary.sql` for why
+   * that separation matters. `null` when no extraction has produced
+   * one (e.g. a manual-entry row, or a provider that returned no
+   * facts to summarize).
+   */
+  roniSummary: string | null;
   createdAt: string;
   updatedAt: string;
 }
 
 export type NewExtractedPolicyDataInput<TData = unknown> = Omit<
   ExtractedPolicyData<TData>,
-  "id" | "ownerUserId" | "createdAt" | "updatedAt" | "extractionStatus"
+  "id" | "ownerUserId" | "createdAt" | "updatedAt" | "extractionStatus" | "roniSummary"
 > &
-  Partial<Pick<ExtractedPolicyData<TData>, "extractionStatus">>;
+  Partial<Pick<ExtractedPolicyData<TData>, "extractionStatus" | "roniSummary">>;
+
+/**
+ * A durable, database-backed record of one analysis attempt (migration
+ * 0006) — created BEFORE the AI provider is ever called, so a
+ * serverless function that dies mid-analysis (timeout, deploy, cold
+ * start eviction) still leaves a real, inspectable row behind
+ * (`status: "processing"`, `finishedAt: null`) instead of vanishing
+ * with no trace. See `lib/services/policy-extraction/job-runner.ts`,
+ * the one place that creates/advances these.
+ */
+export interface PolicyAnalysisJob {
+  id: string;
+  policyId: string;
+  documentId: string;
+  ownerUserId: string;
+  status: AnalysisJobStatus;
+  attemptNumber: number;
+  extractedDataId: string | null;
+  errorReason: string | null;
+  startedAt: string | null;
+  finishedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 /** Row shapes as Supabase actually returns them (snake_case) — only `lib/wallet/repository.ts` should see these directly. */
 export type PolicyRow = Database["public"]["Tables"]["policies"]["Row"];
 export type PolicyDocumentRow = Database["public"]["Tables"]["policy_documents"]["Row"];
 export type ExtractedDataRow = Database["public"]["Tables"]["policy_extracted_data"]["Row"];
 export type ExtractionEvidenceRow = Database["public"]["Tables"]["policy_extracted_data_evidence"]["Row"];
+export type PolicyAnalysisJobRow = Database["public"]["Tables"]["policy_analysis_jobs"]["Row"];

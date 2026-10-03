@@ -30,6 +30,9 @@ export type PremiumFrequency = "monthly" | "quarterly" | "semi_annual" | "annual
 
 export type ExtractionStatus = "pending" | "processing" | "complete" | "failed" | "needs_review";
 
+/** `policy_analysis_jobs.status` — a job starts `"queued"` (migration 0006), before any `policy_extracted_data` row exists at all, which is why this is its own type rather than reusing `ExtractionStatus`'s `"pending"`. */
+export type AnalysisJobStatus = "queued" | "processing" | "complete" | "failed" | "needs_review";
+
 /** Same recursive shape Supabase's own codegen uses for `jsonb` columns. */
 export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
 
@@ -49,6 +52,20 @@ export type Json = string | number | boolean | null | { [key: string]: Json | un
  * codegen does the same when a referenced schema isn't included.
  */
 export interface Database {
+  /**
+   * Present in every `supabase gen types typescript` output on current
+   * Supabase CLI versions (it was NOT in this hand-written file, since
+   * it predates that codegen convention). Added here to match, but —
+   * see the investigation notes in the accompanying report — this is a
+   * belt-and-suspenders alignment with the real codegen shape, not the
+   * fix for the `never[]` symptom: a from-scratch reproduction of
+   * `@supabase/supabase-js@2.117.2`'s actual generic-resolution logic
+   * (verified with `tsc`, not assumed) resolves `Tables["policies"]["Insert"]`
+   * correctly for this `Database` shape with or without this field.
+   */
+  __InternalSupabase: {
+    PostgrestVersion: "12";
+  };
   public: {
     Tables: {
       profiles: {
@@ -220,6 +237,7 @@ export interface Database {
           extraction_status: ExtractionStatus;
           extracted_by: string | null;
           overall_confidence: number | null;
+          roni_summary: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -234,6 +252,7 @@ export interface Database {
           extraction_status?: ExtractionStatus;
           extracted_by?: string | null;
           overall_confidence?: number | null;
+          roni_summary?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -267,6 +286,9 @@ export interface Database {
           document_id: string | null;
           page_number: number | null;
           snippet: string | null;
+          /** Set only by server code, after the model responds — see migration 0007. `null` = couldn't be checked (not the same as verified-false). */
+          page_verified: boolean | null;
+          snippet_verified: boolean | null;
           created_at: string;
         };
         Insert: {
@@ -279,6 +301,8 @@ export interface Database {
           document_id?: string | null;
           page_number?: number | null;
           snippet?: string | null;
+          page_verified?: boolean | null;
+          snippet_verified?: boolean | null;
           created_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["policy_extracted_data_evidence"]["Insert"]>;
@@ -299,6 +323,61 @@ export interface Database {
           },
         ];
         // policy_extracted_data_evidence.owner_user_id -> auth.users.id — auth schema not modeled here.
+      };
+      policy_analysis_jobs: {
+        Row: {
+          id: string;
+          policy_id: string;
+          document_id: string;
+          owner_user_id: string;
+          status: AnalysisJobStatus;
+          attempt_number: number;
+          extracted_data_id: string | null;
+          error_reason: string | null;
+          started_at: string | null;
+          finished_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          policy_id: string;
+          document_id: string;
+          owner_user_id: string;
+          status?: AnalysisJobStatus;
+          attempt_number?: number;
+          extracted_data_id?: string | null;
+          error_reason?: string | null;
+          started_at?: string | null;
+          finished_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["policy_analysis_jobs"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "policy_analysis_jobs_policy_id_fkey";
+            columns: ["policy_id"];
+            isOneToOne: false;
+            referencedRelation: "policies";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "policy_analysis_jobs_document_id_fkey";
+            columns: ["document_id"];
+            isOneToOne: false;
+            referencedRelation: "policy_documents";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "policy_analysis_jobs_extracted_data_id_fkey";
+            columns: ["extracted_data_id"];
+            isOneToOne: false;
+            referencedRelation: "policy_extracted_data";
+            referencedColumns: ["id"];
+          },
+        ];
+        // policy_analysis_jobs.owner_user_id -> auth.users.id — auth schema not modeled here.
       };
     };
     Views: Record<string, never>;
