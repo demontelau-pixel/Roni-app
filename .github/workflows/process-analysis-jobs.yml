@@ -22,8 +22,38 @@ jobs:
           CRON_SECRET: ${{ secrets.CRON_SECRET }}
           RONI_APP_URL: ${{ secrets.RONI_APP_URL }}
         run: |
-          curl --fail-with-body --silent --show-error \
-            --max-time 360 \
-            --request POST \
-            --header "Authorization: Bearer ${CRON_SECRET}" \
-            "${RONI_APP_URL}/api/cron/process-analysis-jobs"
+          python3 - <<'PY'
+          import os
+          import re
+          import sys
+          import urllib.request
+          import urllib.error
+
+          secret = os.environ.get("CRON_SECRET", "")
+          if not re.fullmatch(r"[0-9a-fA-F]{64}", secret):
+              sys.exit("CRON_SECRET debe contener los 64 caracteres generados en Terminal, sin espacios ni saltos de linea.")
+
+          base = os.environ.get("RONI_APP_URL", "").strip().rstrip("/")
+          if base != "https://roni-app-ivory.vercel.app":
+              sys.exit("Revisa RONI_APP_URL: debe ser https://roni-app-ivory.vercel.app")
+
+          request = urllib.request.Request(
+              base + "/api/cron/process-analysis-jobs",
+              data=b"",
+              headers={"Authorization": "Bearer " + secret},
+              method="POST",
+          )
+
+          try:
+              with urllib.request.urlopen(request, timeout=360) as response:
+                  print("HTTP:", response.status)
+                  print(response.read().decode("utf-8", errors="replace"))
+          except urllib.error.HTTPError as error:
+              print("HTTP:", error.code)
+              print(error.read().decode("utf-8", errors="replace"))
+              sys.exit(1)
+          except Exception as error:
+              print(type(error).__name__ + ": " + str(error))
+              sys.exit(1)
+          PY
+      
