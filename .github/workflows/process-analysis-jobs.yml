@@ -1,0 +1,29 @@
+name: Procesar polizas Roni
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "2-59/5 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: roni-analysis-worker
+  cancel-in-progress: false
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Activar worker
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          RONI_APP_URL: ${{ secrets.RONI_APP_URL }}
+        run: |
+          curl --fail-with-body --silent --show-error \
+            --max-time 360 \
+            --request POST \
+            --header "Authorization: Bearer ${CRON_SECRET}" \
+            "${RONI_APP_URL}/api/cron/process-analysis-jobs"
