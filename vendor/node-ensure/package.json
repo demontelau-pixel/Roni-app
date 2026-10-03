@@ -1,0 +1,7 @@
+{
+  "name": "node-ensure",
+  "version": "0.0.0",
+  "description": "Local, vendored replacement for the upstream `node-ensure` package — see index.js for why this exists.",
+  "main": "index.js",
+  "license": "MIT"
+}
