@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { createServiceRoleClient } from "@/lib/supabase/service-role";
 import { runCronTick } from "@/lib/services/policy-extraction/job-runner";
 
@@ -55,6 +56,79 @@ export async function GET(request: Request) {
   return handleCronRequest(request);
 }
 
+const BEARER_PREFIX = "Bearer ";
+
+/**
+ * TEMPORARY DIAGNOSTIC — added to find why production kept returning 401
+ * even after a confirmed fresh, cache-less redeploy (new build, not a
+ * promote/rollback) with an updated `CRON_SECRET`. This exists ONLY to
+ * tell "the two secrets are different strings" apart from "the header
+ * never arrived / arrived malformed" — WITHOUT ever exposing either
+ * secret. Remove this function, its one call site below, and the
+ * `node:crypto` import once the real cause is found and fixed.
+ *
+ * What this logs, and ONLY to Vercel's own restricted function logs
+ * (`console.error`, never in the HTTP response — the public 401 stays
+ * exactly as generic as it always was):
+ *   - the deployment's own git commit / Vercel URL / environment, if
+ *     Vercel's system env vars expose them, so a log line can be tied
+ *     to a specific deployment;
+ *   - whether CRON_SECRET is present and its length (not its value);
+ *   - whether it contains whitespace (a classic copy-paste artifact);
+ *   - whether the Authorization header is present at all, and whether
+ *     it has exactly the `Bearer ` prefix this route's own comparison
+ *     requires;
+ *   - the length of the token after that prefix (not the token);
+ *   - a SHA-256 fingerprint of each secret/token, truncated to 8 hex
+ *     chars — but ONLY when that string is at least 32 characters long.
+ *     A real `CRON_SECRET` is 64 hex chars (32 bytes of entropy from
+ *     `openssl rand -hex 32`), so this always fires for a real secret;
+ *     it's skipped below that length specifically so this can never be
+ *     used to help brute-force a short/weak value.
+ *
+ * Two equal secrets always produce the same 8-char fingerprint; two
+ * different secrets produce different fingerprints with overwhelming
+ * probability. Comparing `expectedSecret.fingerprint` to
+ * `receivedAuth.tokenFingerprint` in the log line is how this tells
+ * "different value" apart from "header missing/malformed" without
+ * either value ever being printed.
+ */
+function logUnauthorizedDiagnostic(request: Request, expectedSecret: string): void {
+  const authHeader = request.headers.get("authorization");
+  const hasExpectedBearerPrefix = authHeader !== null && authHeader.startsWith(BEARER_PREFIX);
+  const token = hasExpectedBearerPrefix ? authHeader.slice(BEARER_PREFIX.length) : null;
+
+  const fingerprint = (value: string): string => {
+    if (value.length < 32) return "omitted-too-short";
+    return createHash("sha256").update(value).digest("hex").slice(0, 8);
+  };
+
+  console.error(
+    "[cron-diag:unauthorized]",
+    JSON.stringify({
+      deployment: {
+        commit: process.env.VERCEL_GIT_COMMIT_SHA ?? null,
+        commitRef: process.env.VERCEL_GIT_COMMIT_REF ?? null,
+        vercelUrl: process.env.VERCEL_URL ?? null,
+        env: process.env.VERCEL_ENV ?? null,
+      },
+      expectedSecret: {
+        present: expectedSecret.length > 0,
+        length: expectedSecret.length,
+        hasWhitespace: /\s/.test(expectedSecret),
+        fingerprint: fingerprint(expectedSecret),
+      },
+      receivedAuth: {
+        headerPresent: authHeader !== null,
+        hasExpectedBearerPrefix,
+        tokenLength: token === null ? null : token.length,
+        tokenHasWhitespace: token === null ? null : /\s/.test(token),
+        tokenFingerprint: token === null ? null : fingerprint(token),
+      },
+    }),
+  );
+}
+
 async function handleCronRequest(request: Request) {
   const expectedSecret = process.env.CRON_SECRET;
   if (!expectedSecret) {
@@ -66,6 +140,11 @@ async function handleCronRequest(request: Request) {
 
   const authHeader = request.headers.get("authorization");
   if (authHeader !== `Bearer ${expectedSecret}`) {
+    // TEMPORARY — see logUnauthorizedDiagnostic's own doc comment above.
+    // The public response below is completely unchanged: still generic,
+    // still 401, still reveals nothing. Only Vercel's own restricted
+    // function logs get the extra (non-sensitive) detail.
+    logUnauthorizedDiagnostic(request, expectedSecret);
     return NextResponse.json({ ok: false, error: { code: "unauthorized", message: "Unauthorized." } }, { status: 401 });
   }
 
