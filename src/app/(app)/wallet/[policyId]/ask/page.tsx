@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { getPolicy } from "@/lib/wallet/repository";
+import { getPolicy, getPolicyChatTurns } from "@/lib/wallet/repository";
 import { RoniAvatar } from "@/components/roni/RoniAvatar";
 import { PolicyAskPanel } from "@/components/roni/PolicyAskPanel";
 import { Icon } from "@/components/ui/Icon";
@@ -16,7 +16,7 @@ export default async function AskPolicyPage({ params }: AskPolicyPageProps) {
   await requireUser(`/wallet/${policyId}/ask`);
   const supabase = await createClient();
 
-  const policy = await getPolicy(supabase, policyId);
+  const [policy, initialTurns] = await Promise.all([getPolicy(supabase, policyId), getPolicyChatTurns(supabase, policyId)]);
   if (!policy) notFound();
 
   return (
@@ -32,7 +32,7 @@ export default async function AskPolicyPage({ params }: AskPolicyPageProps) {
         </div>
       </div>
 
-      <PolicyAskPanel policyId={policyId} />
+      <PolicyAskPanel policyId={policyId} initialTurns={initialTurns} />
     </div>
   );
 }

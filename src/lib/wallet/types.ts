@@ -6,6 +6,7 @@ import type {
   WalletCategory,
   WalletPolicyStatus,
 } from "@/lib/supabase/database.types";
+import type { PolicyQAAnswer } from "@/lib/services/policy-qa/types";
 
 export type { WalletCategory, WalletPolicyStatus, PremiumFrequency, ExtractionStatus, AnalysisJobStatus };
 
@@ -194,9 +195,20 @@ export interface PolicyAnalysisJob {
   updatedAt: string;
 }
 
+/** One persistent, owner-scoped Ask Roni question and its shaped safe answer. */
+export interface PolicyChatTurn {
+  id: string;
+  policyId: string;
+  ownerUserId: string;
+  question: string;
+  answer: PolicyQAAnswer;
+  createdAt: string;
+}
+
 /** Row shapes as Supabase actually returns them (snake_case) — only `lib/wallet/repository.ts` should see these directly. */
 export type PolicyRow = Database["public"]["Tables"]["policies"]["Row"];
 export type PolicyDocumentRow = Database["public"]["Tables"]["policy_documents"]["Row"];
 export type ExtractedDataRow = Database["public"]["Tables"]["policy_extracted_data"]["Row"];
 export type ExtractionEvidenceRow = Database["public"]["Tables"]["policy_extracted_data_evidence"]["Row"];
 export type PolicyAnalysisJobRow = Database["public"]["Tables"]["policy_analysis_jobs"]["Row"];
+export type PolicyChatTurnRow = Database["public"]["Tables"]["policy_chat_turns"]["Row"];

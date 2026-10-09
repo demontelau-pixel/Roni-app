@@ -83,9 +83,12 @@ export function parseManualAutoPolicyFacts(formData: FormData): AutoPolicyFacts 
       effectiveDate: str(formData, "effectiveDate"),
       expirationDate: str(formData, "expirationDate"),
       state: str(formData, "state"),
+      currency: str(formData, "currency"),
       premiumAmount: num(formData, "premiumAmount"),
       premiumFrequency: pickPremiumFrequency(str(formData, "premiumFrequency")),
       termPremium: num(formData, "termPremium"),
+      paymentInstallmentAmount: num(formData, "paymentInstallmentAmount"),
+      paymentFrequency: pickPremiumFrequency(str(formData, "paymentFrequency")),
     },
     insured: {
       namedInsured: str(formData, "namedInsured"),
@@ -149,10 +152,18 @@ export function parseManualAutoPolicyFacts(formData: FormData): AutoPolicyFacts 
         included: tri(formData, "roadsideIncluded"),
         details: str(formData, "roadsideDetails"),
       },
+      other: [],
     },
     other: {
       discounts: list(formData, "discounts"),
       importantExclusions: list(formData, "importantExclusions"),
+      importantConditions: list(formData, "importantConditions"),
+      endorsements: list(formData, "endorsements"),
+      claimsContact: {
+        phone: str(formData, "claimsPhone"),
+        email: str(formData, "claimsEmail"),
+        website: str(formData, "claimsWebsite"),
+      },
     },
   };
 

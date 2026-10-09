@@ -1,52 +1,32 @@
 /**
- * The normalized shape of an extracted Auto policy's facts —
- * `ExtractedPolicyData<AutoPolicyFacts>.data` when `schemaVersion` is
- * `AUTO_POLICY_SCHEMA_VERSION`. This is what any extraction provider
- * (dev fallback, regex/keyword, or a future AI/OCR provider) must
- * produce, and what the Wallet UI and Ask Roni read.
- *
- * FALSE VS. UNKNOWN (read this before touching any field below):
- * every `included: boolean | null` is three-state on purpose.
- *   - `true`  → the policy document says this coverage is included.
- *   - `false` → the policy document says this coverage is NOT included.
- *   - `null`  → RONI doesn't know yet (not extracted, or not found in
- *               the document). This is NOT the same claim as `false`
- *               and must never be displayed or reasoned about as if
- *               it were.
- * The same rule applies to every other nullable field here: `null`
- * always means "unknown," never "no" or "zero."
- *
- * SCHEMA VERSIONING (M3.2): bumped `"auto.v1"` → `"auto.v2"` to add
- * `included`/`deductible` to PIP, `included` to Medical Payments, and
- * `included` to Uninsured/Underinsured Motorist (previously these
- * were bare limits with no three-state coverage flag). A stored
- * `policy_extracted_data` row's `data` always carries its own
- * `schemaVersion`, so old and new rows can coexist in the same table
- * without migrating existing data — a row is only ever read back
- * through `sanitizeAutoPolicyFacts()` (`lib/wallet/validate-auto-policy-facts.ts`),
- * which normalizes either shape (or anything malformed) into a
- * current, valid `AutoPolicyFacts` rather than trusting the stored
- * JSON directly. This is also what makes re-extraction with a newer
- * schema version safe later: reprocessing an existing document just
- * inserts a new `policy_extracted_data` row with the current
- * `schemaVersion` — the document itself is never touched.
+ * The normalized, evidence-backed shape for an extracted US auto policy.
+ * `null` means RONI could not determine the field from the document; it never
+ * means false, zero, or a guessed default. Older stored rows are normalized by
+ * `sanitizeAutoPolicyFacts` into this current schema before display or use.
  */
+export const AUTO_POLICY_SCHEMA_VERSION = "auto.v3" as const;
 
-export const AUTO_POLICY_SCHEMA_VERSION = "auto.v2" as const;
+export type PremiumFrequency = "monthly" | "quarterly" | "semi_annual" | "annual" | "other" | null;
 
 export interface AutoPolicySummary {
   category: "auto";
   carrier: string | null;
   policyNumber: string | null;
   status: "active" | "pending" | "expired" | "cancelled" | null;
-  effectiveDate: string | null; // ISO date
-  expirationDate: string | null; // ISO date
-  /** 2-letter USPS state the policy is written in. */
+  effectiveDate: string | null;
+  expirationDate: string | null;
+  /** Two-letter USPS state when the policy states it. */
   state: string | null;
+  /** ISO currency only when printed or otherwise explicit in the document. */
+  currency: string | null;
+  /** The recurring premium amount, distinct from total term premium and installments. */
   premiumAmount: number | null;
-  premiumFrequency: "monthly" | "quarterly" | "semi_annual" | "annual" | "other" | null;
-  /** Total premium for the full policy term, when the document states one. */
+  premiumFrequency: PremiumFrequency;
+  /** Total premium for the full stated policy term. */
   termPremium: number | null;
+  /** A stated installment/quoted payment amount, never inferred from the term premium. */
+  paymentInstallmentAmount: number | null;
+  paymentFrequency: PremiumFrequency;
 }
 
 export interface AutoDriver {
@@ -67,12 +47,7 @@ export interface AutoVehicle {
   year: number | null;
   make: string | null;
   model: string | null;
-  /**
-   * Store the REAL VIN here — this field is not itself masked. Any UI
-   * or log that touches a vehicle must call `maskVin()`
-   * (`lib/wallet/mask.ts`) before displaying or writing it anywhere
-   * (M3.0 spec §10).
-   */
+  /** Keep the real VIN server-side; UI must call maskVin before displaying it. */
   vin: string | null;
   usage: VehicleUsage;
   annualMileage: number | null;
@@ -89,7 +64,7 @@ export interface SingleLimit {
 }
 
 export interface DeductibleCoverage {
-  /** Three-state — see the file-level note on false vs. unknown. */
+  /** true = explicitly included, false = explicitly excluded, null = not determined. */
   included: boolean | null;
   deductible: number | null;
 }
@@ -102,28 +77,33 @@ export interface RentalReimbursementCoverage {
 
 export interface RoadsideAssistanceCoverage {
   included: boolean | null;
-  /** Free-text, e.g. "Up to $75 per disablement" — roadside limits vary too much by carrier for a clean structured shape; kept as plain text rather than invented fields. */
   details: string | null;
 }
 
-/** `auto.v2` — PIP now carries its own three-state `included` (a policy can state PIP explicitly excluded, distinct from "not determined") plus an optional deductible, matching how Collision/Comprehensive already model included+deductible. */
 export interface PersonalInjuryProtectionCoverage {
   included: boolean | null;
   limit: number | null;
   deductible: number | null;
 }
 
-/** `auto.v2` — adds `included`, previously implied only by `limit` being non-null (which conflated "not extracted" with "not included"). */
 export interface MedicalPaymentsCoverage {
   included: boolean | null;
   limit: number | null;
 }
 
-/** `auto.v2` — shared shape for both Uninsured and Underinsured Motorist; adds `included` for the same reason as Medical Payments. */
 export interface UninsuredMotoristCoverage {
   included: boolean | null;
   perPerson: number | null;
   perAccident: number | null;
+}
+
+/** Covers policy-specific protections that do not fit a standard Auto field. */
+export interface AdditionalCoverage {
+  name: string;
+  included: boolean | null;
+  limit: string | null;
+  deductible: number | null;
+  details: string | null;
 }
 
 export interface AutoCoverages {
@@ -137,6 +117,22 @@ export interface AutoCoverages {
   comprehensive: DeductibleCoverage;
   rentalReimbursement: RentalReimbursementCoverage;
   roadsideAssistance: RoadsideAssistanceCoverage;
+  other: AdditionalCoverage[];
+}
+
+export interface ClaimsContact {
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+}
+
+export interface AutoPolicyOther {
+  discounts: string[];
+  /** Verbatim-ish short descriptions; never an assertion that a future claim is denied. */
+  importantExclusions: string[];
+  importantConditions: string[];
+  endorsements: string[];
+  claimsContact: ClaimsContact;
 }
 
 export interface AutoPolicyFacts {
@@ -145,14 +141,10 @@ export interface AutoPolicyFacts {
   insured: AutoInsured;
   vehicles: AutoVehicle[];
   coverages: AutoCoverages;
-  other: {
-    discounts: string[];
-    /** Verbatim-ish, short descriptions — not full policy text. */
-    importantExclusions: string[];
-  };
+  other: AutoPolicyOther;
 }
 
-/** An empty-but-valid `AutoPolicyFacts` — every fact `null`/empty, nothing guessed. Useful as a starting point before any extraction has run. */
+/** Empty-but-valid facts. Every unknown remains null or an empty list. */
 export function emptyAutoPolicyFacts(): AutoPolicyFacts {
   return {
     schemaVersion: AUTO_POLICY_SCHEMA_VERSION,
@@ -164,9 +156,12 @@ export function emptyAutoPolicyFacts(): AutoPolicyFacts {
       effectiveDate: null,
       expirationDate: null,
       state: null,
+      currency: null,
       premiumAmount: null,
       premiumFrequency: null,
       termPremium: null,
+      paymentInstallmentAmount: null,
+      paymentFrequency: null,
     },
     insured: { namedInsured: null, address: null, drivers: [] },
     vehicles: [],
@@ -181,7 +176,14 @@ export function emptyAutoPolicyFacts(): AutoPolicyFacts {
       comprehensive: { included: null, deductible: null },
       rentalReimbursement: { included: null, limitPerDay: null, maxDays: null },
       roadsideAssistance: { included: null, details: null },
+      other: [],
     },
-    other: { discounts: [], importantExclusions: [] },
+    other: {
+      discounts: [],
+      importantExclusions: [],
+      importantConditions: [],
+      endorsements: [],
+      claimsContact: { phone: null, email: null, website: null },
+    },
   };
 }

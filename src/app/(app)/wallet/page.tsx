@@ -1,6 +1,6 @@
 import { requireUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { getLatestExtractedPolicyData, getPolicies } from "@/lib/wallet/repository";
+import { getEffectiveAutoPolicyFacts, getPolicies } from "@/lib/wallet/repository";
 import { deriveProcessingState } from "@/lib/wallet/processing-state";
 import { WalletPolicyCard } from "@/components/roni/WalletPolicyCard";
 import { Panel } from "@/components/ui/Panel";
@@ -21,8 +21,8 @@ export default async function WalletPage() {
   const policies = await getPolicies(supabase);
   const withState = await Promise.all(
     policies.map(async (policy) => {
-      const latest = await getLatestExtractedPolicyData(supabase, policy.id);
-      return { policy, processingState: deriveProcessingState(latest?.extractionStatus ?? null) };
+      const latest = await getEffectiveAutoPolicyFacts(supabase, policy.id);
+      return { policy, facts: latest?.data ?? null, processingState: deriveProcessingState(latest?.extractionStatus ?? null) };
     }),
   );
 
@@ -58,8 +58,8 @@ export default async function WalletPage() {
         </Panel>
       ) : (
         <Panel className="divide-y divide-line">
-          {withState.map(({ policy, processingState }) => (
-            <WalletPolicyCard key={policy.id} policy={policy} processingState={processingState} />
+          {withState.map(({ policy, facts, processingState }) => (
+            <WalletPolicyCard key={policy.id} policy={policy} facts={facts} processingState={processingState} />
           ))}
         </Panel>
       )}

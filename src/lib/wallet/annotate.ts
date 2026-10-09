@@ -113,6 +113,8 @@ interface AnnotatedCoverages {
   comprehensive: AnnotatedDeductibleCoverage;
   rentalReimbursement: AnnotatedRentalReimbursement;
   roadsideAssistance: AnnotatedRoadsideAssistance;
+  /** Additional coverage rows retain their stored values; their per-item evidence remains addressable by field path. */
+  other: AutoCoverages["other"];
 }
 
 export interface AnnotatedAutoPolicyFacts {
@@ -123,6 +125,9 @@ export interface AnnotatedAutoPolicyFacts {
   other: {
     discounts: string[];
     importantExclusions: string[];
+    importantConditions: string[];
+    endorsements: string[];
+    claimsContact: AutoPolicyFacts["other"]["claimsContact"];
   };
 }
 
@@ -166,9 +171,12 @@ function annotatePolicySummary(p: AutoPolicySummary, byPath: Map<string, Extract
     effectiveDate: field(byPath, "policy.effectiveDate", p.effectiveDate),
     expirationDate: field(byPath, "policy.expirationDate", p.expirationDate),
     state: field(byPath, "policy.state", p.state),
+    currency: field(byPath, "policy.currency", p.currency),
     premiumAmount: field(byPath, "policy.premiumAmount", p.premiumAmount),
     premiumFrequency: field(byPath, "policy.premiumFrequency", p.premiumFrequency),
     termPremium: field(byPath, "policy.termPremium", p.termPremium),
+    paymentInstallmentAmount: field(byPath, "policy.paymentInstallmentAmount", p.paymentInstallmentAmount),
+    paymentFrequency: field(byPath, "policy.paymentFrequency", p.paymentFrequency),
   };
 }
 
@@ -276,6 +284,7 @@ function annotateCoverages(c: AutoCoverages, byPath: Map<string, ExtractionEvide
     comprehensive: annotateDeductible(c.comprehensive, byPath, "coverages.comprehensive"),
     rentalReimbursement: annotateRental(c.rentalReimbursement, byPath),
     roadsideAssistance: annotateRoadside(c.roadsideAssistance, byPath),
+    other: c.other,
   };
 }
 
@@ -287,6 +296,12 @@ export function annotateAutoPolicyFacts(facts: AutoPolicyFacts, evidence: Extrac
     insured: annotateInsured(facts.insured, byPath),
     vehicles: facts.vehicles.map((v, idx) => annotateVehicle(v, byPath, idx)),
     coverages: annotateCoverages(facts.coverages, byPath),
-    other: { discounts: facts.other.discounts, importantExclusions: facts.other.importantExclusions },
+    other: {
+      discounts: facts.other.discounts,
+      importantExclusions: facts.other.importantExclusions,
+      importantConditions: facts.other.importantConditions,
+      endorsements: facts.other.endorsements,
+      claimsContact: facts.other.claimsContact,
+    },
   };
 }

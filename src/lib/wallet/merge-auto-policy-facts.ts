@@ -61,6 +61,13 @@ export function mergeAutoPolicyFacts(automatic: AutoPolicyFacts, manual: AutoPol
     other: {
       discounts: manual.other.discounts.length > 0 ? manual.other.discounts : automatic.other.discounts,
       importantExclusions: manual.other.importantExclusions.length > 0 ? manual.other.importantExclusions : automatic.other.importantExclusions,
+      importantConditions: manual.other.importantConditions.length > 0 ? manual.other.importantConditions : automatic.other.importantConditions,
+      endorsements: manual.other.endorsements.length > 0 ? manual.other.endorsements : automatic.other.endorsements,
+      claimsContact: {
+        phone: pref(manual.other.claimsContact.phone, automatic.other.claimsContact.phone),
+        email: pref(manual.other.claimsContact.email, automatic.other.claimsContact.email),
+        website: pref(manual.other.claimsContact.website, automatic.other.claimsContact.website),
+      },
     },
   };
 }
@@ -79,9 +86,12 @@ function mergePolicySummary(automatic: AutoPolicySummary, manual: AutoPolicySumm
     effectiveDate: pref(manual.effectiveDate, automatic.effectiveDate),
     expirationDate: pref(manual.expirationDate, automatic.expirationDate),
     state: pref(manual.state, automatic.state),
+    currency: pref(manual.currency, automatic.currency),
     premiumAmount: pref(manual.premiumAmount, automatic.premiumAmount),
     premiumFrequency: pref(manual.premiumFrequency, automatic.premiumFrequency),
     termPremium: pref(manual.termPremium, automatic.termPremium),
+    paymentInstallmentAmount: pref(manual.paymentInstallmentAmount, automatic.paymentInstallmentAmount),
+    paymentFrequency: pref(manual.paymentFrequency, automatic.paymentFrequency),
   };
 }
 
@@ -145,5 +155,6 @@ function mergeCoverages(automatic: AutoCoverages, manual: AutoCoverages): AutoCo
     comprehensive: mergeDeductibleCoverage(automatic.comprehensive, manual.comprehensive),
     rentalReimbursement: mergeRental(automatic.rentalReimbursement, manual.rentalReimbursement),
     roadsideAssistance: mergeRoadside(automatic.roadsideAssistance, manual.roadsideAssistance),
+    other: manual.other.length > 0 ? manual.other : automatic.other,
   };
 }

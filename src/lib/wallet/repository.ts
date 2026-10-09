@@ -1,6 +1,7 @@
 import "server-only";
 import type { createClient } from "@/lib/supabase/server";
 import type { createServiceRoleClient } from "@/lib/supabase/service-role";
+import type { PolicyQAAnswer } from "@/lib/services/policy-qa/types";
 import type { Database, Json } from "@/lib/supabase/database.types";
 import { sanitizeAutoPolicyFacts } from "@/lib/wallet/validate-auto-policy-facts";
 import { mergeAutoPolicyFacts } from "@/lib/wallet/merge-auto-policy-facts";
@@ -17,6 +18,8 @@ import type {
   NewWalletPolicyInput,
   PolicyAnalysisJob,
   PolicyAnalysisJobRow,
+  PolicyChatTurn,
+  PolicyChatTurnRow,
   PolicyDocument,
   PolicyDocumentRow,
   PolicyRow,
@@ -163,6 +166,45 @@ function rowToPolicyAnalysisJob(row: PolicyAnalysisJobRow): PolicyAnalysisJob {
     finishedAt: row.finished_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+  };
+}
+
+function safePolicyQAAnswer(value: Json): PolicyQAAnswer {
+  const fallback = "I couldn't determine that from the saved conversation.";
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    return { answerText: fallback, policyStatement: null, generalExplanation: null, notDetermined: fallback, citations: [], grounded: false };
+  }
+  const raw = value as Record<string, unknown>;
+  const stringOrNull = (item: unknown): string | null => (typeof item === "string" && item.trim().length > 0 ? item : null);
+  const citations = Array.isArray(raw.citations)
+    ? raw.citations.flatMap((item) => {
+        if (!item || typeof item !== "object" || Array.isArray(item)) return [];
+        const citation = item as Record<string, unknown>;
+        const label = stringOrNull(citation.label);
+        const pageNumber = typeof citation.pageNumber === "number" && Number.isInteger(citation.pageNumber) && citation.pageNumber > 0 ? citation.pageNumber : null;
+        if (!label) return [];
+        return [{ label, pageNumber, snippet: stringOrNull(citation.snippet), verified: citation.verified === true }];
+      })
+    : [];
+  const answerText = stringOrNull(raw.answerText) ?? fallback;
+  return {
+    answerText,
+    policyStatement: stringOrNull(raw.policyStatement),
+    generalExplanation: stringOrNull(raw.generalExplanation),
+    notDetermined: stringOrNull(raw.notDetermined),
+    citations,
+    grounded: raw.grounded === true && citations.length > 0,
+  };
+}
+
+function rowToPolicyChatTurn(row: PolicyChatTurnRow): PolicyChatTurn {
+  return {
+    id: row.id,
+    policyId: row.policy_id,
+    ownerUserId: row.owner_user_id,
+    question: row.question,
+    answer: safePolicyQAAnswer(row.answer),
+    createdAt: row.created_at,
   };
 }
 
@@ -504,6 +546,27 @@ export async function getLatestManualAutoPolicyFacts(
   return { ...row, data: sanitizeAutoPolicyFacts(row.data) };
 }
 
+/** Latest non-manual auto extraction. Kept separate so a newer manual save never hides prior extracted arrays or fields. */
+export async function getLatestAutomaticAutoPolicyFacts(
+  supabase: Client,
+  policyId: string,
+): Promise<ExtractedPolicyData<AutoPolicyFacts> | null> {
+  const userId = await currentUserId(supabase);
+  const { data, error } = await supabase
+    .from("policy_extracted_data")
+    .select("*")
+    .eq("policy_id", policyId)
+    .eq("owner_user_id", userId)
+    .neq("extracted_by", "manual")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new WalletRepositoryError("Could not load automatically extracted policy data.", error);
+  if (!data) return null;
+  const row = rowToExtractedData(data);
+  return { ...row, data: sanitizeAutoPolicyFacts(row.data) };
+}
+
 /**
  * What the Policy Dashboard, Ask Roni, and Compare My Policy should
  * ALWAYS read instead of `getLatestAutoPolicyFacts` directly (M3.3 §7:
@@ -526,13 +589,18 @@ export async function getEffectiveAutoPolicyFacts(
   supabase: Client,
   policyId: string,
 ): Promise<ExtractedPolicyData<AutoPolicyFacts> | null> {
-  const [latest, manual] = await Promise.all([
+  const [latest, manual, automatic] = await Promise.all([
     getLatestAutoPolicyFacts(supabase, policyId),
     getLatestManualAutoPolicyFacts(supabase, policyId),
+    getLatestAutomaticAutoPolicyFacts(supabase, policyId),
   ]);
-  if (!latest) return manual;
-  if (!manual || manual.id === latest.id) return latest;
-  return { ...latest, data: mergeAutoPolicyFacts(latest.data, manual.data) };
+  if (!manual) return latest;
+  if (!automatic) return manual;
+  // Keep the automatic row's metadata and evidence attached to the merged
+  // view. A newer manual row has no document evidence of its own; returning it
+  // here would make valid citations for untouched extracted facts disappear.
+  // Manual values still win field-by-field in the data payload.
+  return { ...automatic, data: mergeAutoPolicyFacts(automatic.data, manual.data) };
 }
 
 /**
@@ -594,6 +662,43 @@ export async function getExtractionEvidence(
     .eq("owner_user_id", userId);
   if (error) throw new WalletRepositoryError("Could not load extraction evidence.", error);
   return (data ?? []).map(rowToExtractionEvidence);
+}
+
+/** Persistent Ask Roni history, scoped by RLS and owner id to one policy owner. */
+export async function getPolicyChatTurns(supabase: Client, policyId: string): Promise<PolicyChatTurn[]> {
+  const userId = await currentUserId(supabase);
+  const { data, error } = await supabase
+    .from("policy_chat_turns")
+    .select("*")
+    .eq("policy_id", policyId)
+    .eq("owner_user_id", userId)
+    .order("created_at", { ascending: true })
+    .limit(100);
+  if (error) throw new WalletRepositoryError("Could not load Ask Roni history.", error);
+  return (data ?? []).map(rowToPolicyChatTurn);
+}
+
+/** Saves only the shaped answer shown to the owner; no PDF bytes, URLs, or provider response is retained. */
+export async function savePolicyChatTurn(
+  supabase: Client,
+  input: { policyId: string; question: string; answer: PolicyQAAnswer },
+): Promise<PolicyChatTurn> {
+  const userId = await currentUserId(supabase);
+  const question = input.question.trim();
+  if (question.length === 0 || question.length > 1_000) throw new WalletRepositoryError("Could not save that Ask Roni question.");
+
+  const { data, error } = await supabase
+    .from("policy_chat_turns")
+    .insert({
+      policy_id: input.policyId,
+      owner_user_id: userId,
+      question,
+      answer: toJsonValue(input.answer),
+    })
+    .select("*")
+    .single();
+  if (error) throw new WalletRepositoryError("Could not save Ask Roni history.", error);
+  return rowToPolicyChatTurn(data);
 }
 
 // ---------------------------------------------------------------------------

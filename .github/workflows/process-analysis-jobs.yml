@@ -1,0 +1,70 @@
+name: Procesar polizas Roni
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "2-59/5 * * * *"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: roni-analysis-worker
+  cancel-in-progress: false
+
+jobs:
+  process:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Activar worker
+        env:
+          RONI_APP_URL: ${{ secrets.RONI_APP_URL }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import sys
+          import urllib.error
+          import urllib.parse
+          import urllib.request
+
+          base = os.environ.get("RONI_APP_URL", "").strip().rstrip("/")
+          if base != "https://roni-app-ivory.vercel.app":
+              sys.exit("Revisa RONI_APP_URL: debe ser https://roni-app-ivory.vercel.app")
+
+          request_url = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_URL", "")
+          request_token = os.environ.get("ACTIONS_ID_TOKEN_REQUEST_TOKEN", "")
+          if not request_url or not request_token:
+              sys.exit("GitHub OIDC no está disponible. Verifica permissions: id-token: write.")
+
+          separator = "&" if "?" in request_url else "?"
+          oidc_request = urllib.request.Request(
+              request_url + separator + urllib.parse.urlencode({"audience": "roni-analysis-worker"}),
+              headers={"Authorization": "Bearer " + request_token},
+          )
+          try:
+              with urllib.request.urlopen(oidc_request, timeout=30) as response:
+                  oidc_token = json.loads(response.read().decode("utf-8"))["value"]
+          except Exception as error:
+              sys.exit("No se pudo solicitar el token OIDC: " + str(error))
+
+          worker_request = urllib.request.Request(
+              base + "/api/cron/process-analysis-jobs",
+              data=b"",
+              headers={"Authorization": "Bearer " + oidc_token},
+              method="POST",
+          )
+          try:
+              with urllib.request.urlopen(worker_request, timeout=360) as response:
+                  print("HTTP:", response.status)
+                  print(response.read().decode("utf-8", errors="replace"))
+          except urllib.error.HTTPError as error:
+              print("HTTP:", error.code)
+              print(error.read().decode("utf-8", errors="replace"))
+              sys.exit(1)
+          except Exception as error:
+              print(type(error).__name__ + ": " + str(error))
+              sys.exit(1)
+          PY

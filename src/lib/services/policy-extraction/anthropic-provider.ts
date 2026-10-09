@@ -252,7 +252,7 @@ Rules you must follow exactly:
 3. If a field's value is not explicitly stated in the document, or you are not confident, set it to null. Never guess, estimate, or infer a plausible-sounding value.
 4. Never fabricate premiums, limits, dates, vehicles, drivers, exclusions, or deductibles. An invented value is worse than a null value.
 5. For every boolean "included" coverage flag: set true only when the document explicitly states the coverage is present; set false only when the document explicitly states the coverage is absent/excluded/waived (including a page that explicitly says a coverage was NOT purchased/elected — that is a confident, explicit false, not null); set null when the document simply does not mention it at all. Do not treat "not mentioned" as false, and do not treat "explicitly declined/not offered" as null.
-6. Distinguish the policy's total/term premium from any one coverage's own premium — do not report a single coverage's line-item premium as if it were the policy total, and do not report the policy total as if it were one coverage's premium.
+6. Distinguish the policy's recurring premium, total/term premium, and any installment amount. Do not derive one from another. Set currency only when the document explicitly states it, and record payment frequency only when stated.
 7. For every fact you DO extract with reasonable confidence, add one entry to the evidence array citing the page it came from (fieldPath, a short valueText, a confidence between 0 and 1, the pageNumber matching the document's own page as shown — page 1 is the first page you were given, and a short verbatim-ish snippet of the source text). Do not add an evidence entry for a field you left null.
 8. roniSummary must be a short, factual, plain-language summary built ONLY from the facts you extracted in this same call — never a new fact that isn't already in the structured fields, never a recommendation or opinion. If you extracted virtually nothing, return null for roniSummary rather than a padded, empty-sounding summary.
 9. VIN: extract the full VIN only if it is explicitly printed in the document; do not partially reconstruct or guess characters.
@@ -305,9 +305,12 @@ function buildToolSchema(): Record<string, unknown> {
               effectiveDate: nullableString,
               expirationDate: nullableString,
               state: nullableString,
+              currency: nullableString,
               premiumAmount: nullableNumber,
               premiumFrequency: { type: ["string", "null"], enum: ["monthly", "quarterly", "semi_annual", "annual", "other", null] },
               termPremium: nullableNumber,
+              paymentInstallmentAmount: nullableNumber,
+              paymentFrequency: { type: ["string", "null"], enum: ["monthly", "quarterly", "semi_annual", "annual", "other", null] },
             },
             required: [
               "carrier",
@@ -316,9 +319,12 @@ function buildToolSchema(): Record<string, unknown> {
               "effectiveDate",
               "expirationDate",
               "state",
+              "currency",
               "premiumAmount",
               "premiumFrequency",
               "termPremium",
+              "paymentInstallmentAmount",
+              "paymentFrequency",
             ],
             additionalProperties: false,
           },
@@ -390,6 +396,21 @@ function buildToolSchema(): Record<string, unknown> {
                 required: ["included", "details"],
                 additionalProperties: false,
               },
+              other: {
+                type: "array",
+                items: {
+                  type: "object",
+                  properties: {
+                    name: { type: "string" },
+                    included: nullableBool,
+                    limit: nullableString,
+                    deductible: nullableNumber,
+                    details: nullableString,
+                  },
+                  required: ["name", "included", "limit", "deductible", "details"],
+                  additionalProperties: false,
+                },
+              },
             },
             required: [
               "bodilyInjury",
@@ -402,6 +423,7 @@ function buildToolSchema(): Record<string, unknown> {
               "comprehensive",
               "rentalReimbursement",
               "roadsideAssistance",
+              "other",
             ],
             additionalProperties: false,
           },
@@ -410,8 +432,16 @@ function buildToolSchema(): Record<string, unknown> {
             properties: {
               discounts: { type: "array", items: { type: "string" } },
               importantExclusions: { type: "array", items: { type: "string" } },
+              importantConditions: { type: "array", items: { type: "string" } },
+              endorsements: { type: "array", items: { type: "string" } },
+              claimsContact: {
+                type: "object",
+                properties: { phone: nullableString, email: nullableString, website: nullableString },
+                required: ["phone", "email", "website"],
+                additionalProperties: false,
+              },
             },
-            required: ["discounts", "importantExclusions"],
+            required: ["discounts", "importantExclusions", "importantConditions", "endorsements", "claimsContact"],
             additionalProperties: false,
           },
         },

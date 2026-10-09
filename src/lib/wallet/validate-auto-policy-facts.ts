@@ -1,10 +1,12 @@
 import {
+  type AdditionalCoverage,
   AUTO_POLICY_SCHEMA_VERSION,
   emptyAutoPolicyFacts,
   type AutoCoverages,
   type AutoDriver,
   type AutoInsured,
   type AutoPolicyFacts,
+  type AutoPolicyOther,
   type AutoPolicySummary,
   type AutoVehicle,
   type DeductibleCoverage,
@@ -144,6 +146,11 @@ function oneOf<T extends string>(v: unknown, allowed: readonly T[]): T | null {
   return typeof v === "string" && (allowed as readonly string[]).includes(v) ? (v as T) : null;
 }
 
+function currency(v: unknown): string | null {
+  const value = str(v);
+  return value !== null && /^[A-Z]{3}$/.test(value) ? value : null;
+}
+
 function strArray(v: unknown): string[] {
   if (!Array.isArray(v)) return [];
   return v.filter((item): item is string => typeof item === "string" && item.trim().length > 0);
@@ -167,9 +174,12 @@ function sanitizePolicySummary(v: unknown, fallback: AutoPolicySummary): AutoPol
     effectiveDate: dateLike(v.effectiveDate),
     expirationDate: dateLike(v.expirationDate),
     state: str(v.state),
+    currency: currency(v.currency),
     premiumAmount: money(v.premiumAmount),
     premiumFrequency: oneOf(v.premiumFrequency, PREMIUM_FREQUENCIES),
     termPremium: money(v.termPremium),
+    paymentInstallmentAmount: money(v.paymentInstallmentAmount),
+    paymentFrequency: oneOf(v.paymentFrequency, PREMIUM_FREQUENCIES),
   };
 }
 
@@ -255,6 +265,24 @@ function sanitizeRoadside(v: unknown, fallback: RoadsideAssistanceCoverage): Roa
   return { included: bool(v.included), details: str(v.details) };
 }
 
+function sanitizeAdditionalCoverage(v: unknown): AdditionalCoverage | null {
+  if (!isRecord(v)) return null;
+  const name = str(v.name);
+  if (name === null) return null;
+  return {
+    name,
+    included: bool(v.included),
+    limit: str(v.limit),
+    deductible: money(v.deductible),
+    details: str(v.details),
+  };
+}
+
+function sanitizeAdditionalCoverages(v: unknown): AdditionalCoverage[] {
+  if (!Array.isArray(v)) return [];
+  return v.map(sanitizeAdditionalCoverage).filter((coverage): coverage is AdditionalCoverage => coverage !== null);
+}
+
 function sanitizeCoverages(v: unknown, fallback: AutoCoverages): AutoCoverages {
   if (!isRecord(v)) return fallback;
   return {
@@ -268,10 +296,22 @@ function sanitizeCoverages(v: unknown, fallback: AutoCoverages): AutoCoverages {
     comprehensive: sanitizeDeductibleCoverage(v.comprehensive, fallback.comprehensive),
     rentalReimbursement: sanitizeRental(v.rentalReimbursement, fallback.rentalReimbursement),
     roadsideAssistance: sanitizeRoadside(v.roadsideAssistance, fallback.roadsideAssistance),
+    other: sanitizeAdditionalCoverages(v.other),
   };
 }
 
-function sanitizeOther(v: unknown): { discounts: string[]; importantExclusions: string[] } {
-  if (!isRecord(v)) return { discounts: [], importantExclusions: [] };
-  return { discounts: strArray(v.discounts), importantExclusions: strArray(v.importantExclusions) };
+function sanitizeOther(v: unknown): AutoPolicyOther {
+  if (!isRecord(v)) return emptyAutoPolicyFacts().other;
+  const contact = isRecord(v.claimsContact) ? v.claimsContact : {};
+  return {
+    discounts: strArray(v.discounts),
+    importantExclusions: strArray(v.importantExclusions),
+    importantConditions: strArray(v.importantConditions),
+    endorsements: strArray(v.endorsements),
+    claimsContact: {
+      phone: str(contact.phone),
+      email: str(contact.email),
+      website: str(contact.website),
+    },
+  };
 }

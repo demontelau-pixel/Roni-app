@@ -1,39 +1,45 @@
 import type { AnnotatedAutoPolicyFacts } from "@/lib/wallet/annotate";
 
-/**
- * The seam for "Ask Roni about this policy" (M3.3). Same swappable-
- * provider pattern as `PolicyExtractionProvider`
- * (`lib/services/policy-extraction/types.ts`) — a future real LLM
- * provider implements this same interface, prompted with the same
- * `PolicyQAContext`, and is swapped in at
- * `lib/services/policy-qa/index.ts` without the Ask Roni route or UI
- * changing.
- */
+/** Context is assembled only after the route authorizes both the user and the selected policy/document. */
 export interface PolicyQAContext {
   policyId: string;
-  /** Already-annotated so a provider can read both a fact and its citation together — see `lib/wallet/annotate.ts`. */
+  /** Already annotated so a provider can distinguish saved document evidence from manual corrections when needed. */
   facts: AnnotatedAutoPolicyFacts;
-  /** e.g. `"Progressive"` — used to build a citation label like "Progressive Auto Policy · Page 17". `null` when the carrier itself isn't known. */
   carrierLabel: string | null;
   question: string;
+  /** Private PDF bytes supplied server-to-server only; never sent to the browser or stored in a chat row. */
+  document?: {
+    bytes: Buffer;
+    mimeType: string | null;
+    originalFilename: string | null;
+    /** Null when the independent text layer could not determine a page count. */
+    pageCount: number | null;
+    /** Independently extracted page text used only to verify a returned excerpt. */
+    pages: Array<{ pageNumber: number; text: string }>;
+  };
 }
 
 export interface PolicyQACitation {
-  /** Human-readable citation, e.g. `"Progressive Auto Policy · Page 17"` or `"You told RONI this"` for a manually-entered fact with no page evidence. Never fabricated — only built from a real `sourcePage`/`extractedBy` on the field it backs. */
+  /** Human-readable policy page reference, never constructed from a user-supplied path. */
   label: string;
   pageNumber: number | null;
+  /** Short document excerpt when the model could provide one. */
+  snippet?: string | null;
+  /** True only when Roni found the excerpt in independently extracted page text. */
+  verified?: boolean;
 }
 
 export interface PolicyQAAnswer {
+  /** Backward-compatible plain-text rendering assembled from the three explicit sections below. */
   answerText: string;
+  /** What the selected policy itself says, if it can be determined. */
+  policyStatement?: string | null;
+  /** Optional general explanation that is clearly separate from the policy statement. */
+  generalExplanation?: string | null;
+  /** What cannot be settled from the document and what to confirm with the insurer. */
+  notDetermined?: string | null;
   citations: PolicyQACitation[];
-  /**
-   * `true` only when the answer is actually backed by a known fact
-   * (extracted or manually entered) — `false` for the "I couldn't
-   * determine that from this policy" response and for any general,
-   * non-policy-specific remark. The UI uses this to decide whether to
-   * render citation chips at all.
-   */
+  /** True only when a policy statement is backed by at least one document page citation. */
   grounded: boolean;
 }
 

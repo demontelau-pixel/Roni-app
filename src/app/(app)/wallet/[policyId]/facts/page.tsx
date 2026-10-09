@@ -76,6 +76,7 @@ export default async function EditPolicyFactsPage({ params }: FactsPageProps) {
         <Panel padded className="flex flex-col gap-4">
           <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Cost</h2>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <TextField label="Currency" id="currency" name="currency" defaultValue={f.policy.currency ?? ""} placeholder="e.g. USD" maxLength={3} />
             <TextField label="Premium amount" id="premiumAmount" name="premiumAmount" type="number" step="0.01" defaultValue={f.policy.premiumAmount ?? ""} />
             <SelectField
               label="Premium frequency"
@@ -92,6 +93,21 @@ export default async function EditPolicyFactsPage({ params }: FactsPageProps) {
               ]}
             />
             <TextField label="Full term premium" id="termPremium" name="termPremium" type="number" step="0.01" defaultValue={f.policy.termPremium ?? ""} />
+            <TextField label="Installment amount" id="paymentInstallmentAmount" name="paymentInstallmentAmount" type="number" step="0.01" defaultValue={f.policy.paymentInstallmentAmount ?? ""} />
+            <SelectField
+              label="Payment frequency"
+              id="paymentFrequency"
+              name="paymentFrequency"
+              defaultValue={f.policy.paymentFrequency ?? ""}
+              placeholder="Not determined"
+              options={[
+                { value: "monthly", label: "Monthly" },
+                { value: "quarterly", label: "Quarterly" },
+                { value: "semi_annual", label: "Semi-annual" },
+                { value: "annual", label: "Annual" },
+                { value: "other", label: "Other" },
+              ]}
+            />
           </div>
         </Panel>
 
@@ -171,6 +187,11 @@ export default async function EditPolicyFactsPage({ params }: FactsPageProps) {
           <h2 className="text-sm font-bold uppercase tracking-wide text-muted">Other</h2>
           <TextField label="Discounts (comma-separated)" id="discounts" name="discounts" defaultValue={f.other.discounts.join(", ")} />
           <TextField label="Important exclusions (comma-separated)" id="importantExclusions" name="importantExclusions" defaultValue={f.other.importantExclusions.join(", ")} />
+          <TextField label="Important conditions (comma-separated)" id="importantConditions" name="importantConditions" defaultValue={f.other.importantConditions.join(", ")} />
+          <TextField label="Endorsements or modifications (comma-separated)" id="endorsements" name="endorsements" defaultValue={f.other.endorsements.join(", ")} />
+          <TextField label="Claims phone" id="claimsPhone" name="claimsPhone" defaultValue={f.other.claimsContact.phone ?? ""} />
+          <TextField label="Claims email" id="claimsEmail" name="claimsEmail" type="email" defaultValue={f.other.claimsContact.email ?? ""} />
+          <TextField label="Claims website" id="claimsWebsite" name="claimsWebsite" type="url" defaultValue={f.other.claimsContact.website ?? ""} />
         </Panel>
 
         <div className="flex justify-end gap-2">
