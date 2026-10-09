@@ -5,9 +5,11 @@ import { RoniAvatar } from "@/components/roni/RoniAvatar";
 import { Button } from "@/components/ui/Button";
 import { Tag } from "@/components/ui/Tag";
 import type { PolicyQAAnswer } from "@/lib/services/policy-qa";
+import type { PolicyChatTurn } from "@/lib/wallet/types";
 
 interface PolicyAskPanelProps {
   policyId: string;
+  initialTurns: PolicyChatTurn[];
 }
 
 interface Turn {
@@ -29,9 +31,9 @@ const SUGGESTIONS = [
  * `policyId`'s own extracted/manually-entered facts, via
  * `POST /api/wallet/policies/[policyId]/ask`.
  */
-export function PolicyAskPanel({ policyId }: PolicyAskPanelProps) {
+export function PolicyAskPanel({ policyId, initialTurns }: PolicyAskPanelProps) {
   const [question, setQuestion] = useState("");
-  const [turns, setTurns] = useState<Turn[]>([]);
+  const [turns, setTurns] = useState<Turn[]>(() => initialTurns.map((turn) => ({ question: turn.question, answer: turn.answer })));
   const [loading, setLoading] = useState(false);
 
   async function ask(q: string) {
@@ -98,13 +100,39 @@ export function PolicyAskPanel({ policyId }: PolicyAskPanelProps) {
               <div className="max-w-[88%] rounded-2xl rounded-bl-md bg-soft px-3.5 py-3">
                 {turn.answer ? (
                   <>
-                    <p>{turn.answer.answerText}</p>
+                    {turn.answer.policyStatement || turn.answer.generalExplanation || turn.answer.notDetermined ? (
+                      <div className="flex flex-col gap-2 text-sm">
+                        {turn.answer.policyStatement && (
+                          <div>
+                            <div className="text-xs font-bold uppercase tracking-wide text-muted">What your policy says</div>
+                            <p>{turn.answer.policyStatement}</p>
+                          </div>
+                        )}
+                        {turn.answer.generalExplanation && (
+                          <div>
+                            <div className="text-xs font-bold uppercase tracking-wide text-muted">General explanation</div>
+                            <p>{turn.answer.generalExplanation}</p>
+                          </div>
+                        )}
+                        {turn.answer.notDetermined && (
+                          <div>
+                            <div className="text-xs font-bold uppercase tracking-wide text-muted">What Roni can&apos;t determine</div>
+                            <p>{turn.answer.notDetermined}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : (
+                      <p>{turn.answer.answerText}</p>
+                    )}
                     {turn.answer.citations.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
+                      <div className="mt-2 flex flex-col gap-1.5">
                         {turn.answer.citations.map((c, cIdx) => (
-                          <Tag key={cIdx} variant="grey">
-                            {c.label}
-                          </Tag>
+                          <div key={cIdx} className="flex flex-wrap items-center gap-1.5">
+                            <Tag variant="grey">{c.label}</Tag>
+                            {c.verified === true && <Tag variant="good">Verified reference</Tag>}
+                            {c.verified === false && <Tag variant="warn">Unverified reference</Tag>}
+                            {c.snippet && <span className="text-xs text-muted">“{c.snippet}”</span>}
+                          </div>
                         ))}
                       </div>
                     )}

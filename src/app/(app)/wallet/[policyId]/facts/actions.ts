@@ -6,6 +6,7 @@ import { requireUser } from "@/lib/auth/session";
 import { getPolicy, saveExtractedPolicyData, updatePolicy } from "@/lib/wallet/repository";
 import { parseManualAutoPolicyFacts } from "@/lib/wallet/manual-facts-form";
 import { AUTO_POLICY_SCHEMA_VERSION } from "@/lib/wallet/schemas/auto-policy";
+import { sanitizeAutoPolicyFacts } from "@/lib/wallet/validate-auto-policy-facts";
 
 /**
  * Saves the manual-entry form (M3.1–M3.4 "DEVELOPMENT FALLBACK": when
@@ -31,7 +32,7 @@ export async function saveManualAutoFacts(policyId: string, formData: FormData):
     redirect("/wallet");
   }
 
-  const facts = parseManualAutoPolicyFacts(formData);
+  const facts = sanitizeAutoPolicyFacts(parseManualAutoPolicyFacts(formData));
 
   await saveExtractedPolicyData(supabase, {
     policyId,

@@ -137,6 +137,7 @@ export default async function PolicyDashboardPage({ params }: PolicyDashboardPag
 
       <Panel padded>
         <h2 className="mb-1 text-sm font-bold uppercase tracking-wide text-muted">Cost</h2>
+        <FactRow label="Currency" displayValue={facts.policy.currency} field={annotated.policy.currency} />
         <FactRow
           label="Premium"
           displayValue={
@@ -147,6 +148,12 @@ export default async function PolicyDashboardPage({ params }: PolicyDashboardPag
           field={annotated.policy.premiumAmount}
         />
         <FactRow label="Full term premium" displayValue={moneyOrNull(facts.policy.termPremium)} field={annotated.policy.termPremium} />
+        <FactRow
+          label="Installment amount"
+          displayValue={moneyOrNull(facts.policy.paymentInstallmentAmount)}
+          field={annotated.policy.paymentInstallmentAmount}
+        />
+        <FactRow label="Payment frequency" displayValue={facts.policy.paymentFrequency?.replace("_", "-")} field={annotated.policy.paymentFrequency} />
       </Panel>
 
       <Panel padded>
@@ -205,6 +212,17 @@ export default async function PolicyDashboardPage({ params }: PolicyDashboardPag
         {facts.coverages.roadsideAssistance.details && (
           <FactRow label="Roadside assistance details" displayValue={facts.coverages.roadsideAssistance.details} field={annotated.coverages.roadsideAssistance.details} />
         )}
+        {facts.coverages.other.map((coverage, index) => (
+          <div key={`${coverage.name}-${index}`} className="border-t border-line py-2">
+            <div className="font-semibold">{coverage.name}</div>
+            <div className="mt-1 text-sm text-muted">
+              {coverage.included === null ? "Not determined" : coverage.included ? "Included" : "Not included"}
+              {coverage.limit ? ` · ${coverage.limit}` : ""}
+              {coverage.deductible !== null ? ` · ${formatMoneyOrUnavailable(coverage.deductible)} deductible` : ""}
+              {coverage.details ? ` · ${coverage.details}` : ""}
+            </div>
+          </div>
+        ))}
       </Panel>
 
       <Panel padded>
@@ -228,7 +246,13 @@ export default async function PolicyDashboardPage({ params }: PolicyDashboardPag
             </p>
           </div>
         )}
-        {facts.other.discounts.length === 0 && facts.other.importantExclusions.length === 0 ? (
+        {facts.other.discounts.length === 0 &&
+        facts.other.importantExclusions.length === 0 &&
+        facts.other.importantConditions.length === 0 &&
+        facts.other.endorsements.length === 0 &&
+        !facts.other.claimsContact.phone &&
+        !facts.other.claimsContact.email &&
+        !facts.other.claimsContact.website ? (
           <p className="py-2 text-sm text-muted">Nothing recorded yet.</p>
         ) : (
           <>
@@ -250,6 +274,34 @@ export default async function PolicyDashboardPage({ params }: PolicyDashboardPag
                     <li key={e}>{e}</li>
                   ))}
                 </ul>
+              </div>
+            )}
+            {facts.other.importantConditions.length > 0 && (
+              <div className="py-2">
+                <div className="text-sm text-muted">Important conditions</div>
+                <ul className="mt-1 list-disc pl-5 text-sm">
+                  {facts.other.importantConditions.map((condition) => (
+                    <li key={condition}>{condition}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {facts.other.endorsements.length > 0 && (
+              <div className="py-2">
+                <div className="text-sm text-muted">Endorsements and modifications</div>
+                <ul className="mt-1 list-disc pl-5 text-sm">
+                  {facts.other.endorsements.map((endorsement) => (
+                    <li key={endorsement}>{endorsement}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {(facts.other.claimsContact.phone || facts.other.claimsContact.email || facts.other.claimsContact.website) && (
+              <div className="py-2">
+                <div className="text-sm text-muted">Claims contact in the policy</div>
+                <div className="mt-1 text-sm">
+                  {[facts.other.claimsContact.phone, facts.other.claimsContact.email, facts.other.claimsContact.website].filter(Boolean).join(" · ")}
+                </div>
               </div>
             )}
           </>

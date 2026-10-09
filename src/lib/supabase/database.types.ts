@@ -379,6 +379,35 @@ export interface Database {
         ];
         // policy_analysis_jobs.owner_user_id -> auth.users.id — auth schema not modeled here.
       };
+      policy_chat_turns: {
+        Row: {
+          id: string;
+          policy_id: string;
+          owner_user_id: string;
+          question: string;
+          answer: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          policy_id: string;
+          owner_user_id: string;
+          question: string;
+          answer?: Json;
+          created_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["policy_chat_turns"]["Insert"]>;
+        Relationships: [
+          {
+            foreignKeyName: "policy_chat_turns_policy_id_fkey";
+            columns: ["policy_id"];
+            isOneToOne: false;
+            referencedRelation: "policies";
+            referencedColumns: ["id"];
+          },
+        ];
+        // policy_chat_turns.owner_user_id -> auth.users.id — auth schema not modeled here.
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;

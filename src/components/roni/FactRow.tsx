@@ -43,8 +43,6 @@ export function FactRow({ label, displayValue, field }: FactRowProps) {
     if (field.sourcePage !== null) {
       citation = `Page ${field.sourcePage}`;
       citationVerified = field.evidenceVerified;
-    } else {
-      citation = "You told RONI this";
     }
     needsReview = bucketConfidence(field.confidence) === "needs_review";
   }
